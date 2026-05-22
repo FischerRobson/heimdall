@@ -7,9 +7,11 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import lombok.RequiredArgsConstructor;
+import tracing.HeimdallMonitor;
 
 @Path("/metrics")
 @RequiredArgsConstructor
+@HeimdallMonitor
 public class MetricsResource {
 
     private final MetricsService metricsService;

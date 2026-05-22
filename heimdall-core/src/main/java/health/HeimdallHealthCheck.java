@@ -6,9 +6,11 @@ import org.eclipse.microprofile.health.Liveness;
 import history.MetricsHistory;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import tracing.HeimdallMonitor;
 
 @Liveness
 @ApplicationScoped
+@HeimdallMonitor
 public class HeimdallHealthCheck implements HealthCheck {
 
     @Inject

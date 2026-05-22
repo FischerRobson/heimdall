@@ -7,6 +7,8 @@ import jakarta.enterprise.inject.spi.BeanManager;
 import jakarta.enterprise.inject.spi.InjectionPoint;
 import jakarta.enterprise.util.AnnotationLiteral;
 import jakarta.inject.Inject;
+import lombok.RequiredArgsConstructor;
+import tracing.HeimdallMonitor;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
@@ -14,10 +16,11 @@ import java.lang.reflect.Field;
 import java.util.*;
 
 @ApplicationScoped
+@HeimdallMonitor
+@RequiredArgsConstructor
 public class BeansService {
 
-    @Inject
-    BeanManager beanManager;
+    private final BeanManager beanManager;
 
     public BeanGraph getGraph() {
         Set<Bean<?>> allBeans = beanManager.getBeans(Object.class, new AnnotationLiteral<Any>() {});

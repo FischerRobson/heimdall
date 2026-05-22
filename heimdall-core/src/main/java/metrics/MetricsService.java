@@ -1,6 +1,7 @@
 package metrics;
 
 import jakarta.enterprise.context.ApplicationScoped;
+import tracing.HeimdallMonitor;
 import utils.ByteConverter;
 import utils.TimeConverter;
 
@@ -9,6 +10,7 @@ import java.lang.management.ThreadInfo;
 import java.util.*;
 
 @ApplicationScoped
+@HeimdallMonitor
 public class MetricsService {
 
     private MemoryInfo getMemoryInfo() {

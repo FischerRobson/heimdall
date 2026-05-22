@@ -6,9 +6,11 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import lombok.RequiredArgsConstructor;
+import tracing.HeimdallMonitor;
 
 @Path("/connections")
 @RequiredArgsConstructor
+@HeimdallMonitor
 public class ConnectionsResource {
 
     private final ConnectionsService connectionsService;

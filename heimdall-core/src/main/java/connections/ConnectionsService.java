@@ -6,12 +6,14 @@ import connections.detect.RabbitMQConnection;
 import connections.detect.RedisConnection;
 import jakarta.enterprise.context.ApplicationScoped;
 import lombok.RequiredArgsConstructor;
+import tracing.HeimdallMonitor;
 
 import java.util.ArrayList;
 import java.util.List;
 
 @ApplicationScoped
 @RequiredArgsConstructor
+@HeimdallMonitor
 public class ConnectionsService {
 
     private final HikariCPConnection hikariCPConnection;

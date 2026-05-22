@@ -1,6 +1,6 @@
 <beans xmlns="https://jakarta.ee/xml/ns/jakartaee"
        version="4.0">
     <interceptors>
-        <class>beans.HeimdallInterceptor</class>
+        <class>tracing.HeimdallInterceptor</class>
     </interceptors>
 </beans>

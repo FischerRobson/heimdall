@@ -2,6 +2,7 @@ package connections.detect;
 
 import connections.ConnectionInfo;
 import jakarta.enterprise.context.ApplicationScoped;
+import tracing.HeimdallMonitor;
 
 import javax.management.MBeanServer;
 import javax.management.MalformedObjectNameException;
@@ -11,6 +12,7 @@ import java.time.Instant;
 import java.util.*;
 
 @ApplicationScoped
+@HeimdallMonitor
 public class HikariCPConnection {
 
     public void detect(List<ConnectionInfo> connectionInfoList) {

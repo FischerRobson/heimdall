@@ -2,6 +2,7 @@ package connections.detect;
 
 import connections.ConnectionInfo;
 import jakarta.enterprise.context.ApplicationScoped;
+import tracing.HeimdallMonitor;
 
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
@@ -10,6 +11,7 @@ import java.time.Instant;
 import java.util.*;
 
 @ApplicationScoped
+@HeimdallMonitor
 public class KafkaConnection {
 
     public void detect(List<ConnectionInfo> connectionInfoList) {

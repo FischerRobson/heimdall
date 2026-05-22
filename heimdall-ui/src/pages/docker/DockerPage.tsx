@@ -179,7 +179,7 @@ function ClusterSection({ cluster, containers }: { cluster: string; containers: 
   )
 }
 
-export default function DockerDashboard() {
+export function DockerPage() {
   const [containers, setContainers] = useState<DockerContainer[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -195,8 +195,8 @@ export default function DockerDashboard() {
     }
 
     fetchContainers()
-    const interval = setInterval(fetchContainers, 5000)
-    return () => clearInterval(interval)
+    // const interval = setInterval(fetchContainers, 5000)
+    // return () => clearInterval(interval)
   }, [])
 
   const clusters = [...new Set(containers.map(c => c.cluster ?? 'unknown'))]

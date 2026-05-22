@@ -6,9 +6,11 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import lombok.RequiredArgsConstructor;
+import tracing.HeimdallMonitor;
 
 @Path("/beans")
 @RequiredArgsConstructor
+@HeimdallMonitor
 public class BeansResource {
 
     private final BeansService beansService;

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import {
   ReactFlow,
   Background,
@@ -60,7 +60,7 @@ interface DetailPanel {
   usedBy: number
 }
 
-export function BeanGraph({ data }: Props) {
+export function BeansPage({ data }: Props) {
   const { nodes: beans, edges: beanEdges } = data
 
   const [focusedBean, setFocusedBean] = useState<string | null>(null)

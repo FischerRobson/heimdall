@@ -4,8 +4,10 @@ import exceptions.ErrorResponse;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.ExceptionMapper;
 import jakarta.ws.rs.ext.Provider;
+import tracing.HeimdallMonitor;
 
 @Provider
+@HeimdallMonitor
 public class GlobalExceptionMapper implements ExceptionMapper<Exception> {
 
     @Override

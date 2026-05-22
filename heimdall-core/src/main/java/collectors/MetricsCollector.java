@@ -7,9 +7,11 @@ import jakarta.enterprise.context.ApplicationScoped;
 import lombok.RequiredArgsConstructor;
 import metrics.Metrics;
 import metrics.MetricsService;
+import tracing.HeimdallMonitor;
 
 @ApplicationScoped
 @RequiredArgsConstructor
+@HeimdallMonitor
 public class MetricsCollector {
 
     private final MetricsService metricsService;

@@ -5,6 +5,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.spi.BeanManager;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import tracing.HeimdallMonitor;
 
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
@@ -13,6 +14,7 @@ import java.time.Instant;
 import java.util.*;
 
 @ApplicationScoped
+@HeimdallMonitor
 public class RedisConnection {
 
     @Inject
