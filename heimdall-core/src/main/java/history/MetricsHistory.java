@@ -3,6 +3,7 @@ package history;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
@@ -27,7 +28,13 @@ public class MetricsHistory {
     }
 
     public List<MetricsSnapshot> getAll() {
-        return metricsSnapshotLinkedList;
+        // Collections.synchronizedList only makes individual calls atomic — iterating it
+        // (which is exactly what happens when this gets serialized) still needs external
+        // synchronization to be safe against a concurrent add()/removeFirst() from the
+        // scheduler thread. Return a snapshot copy instead of the live list.
+        synchronized (metricsSnapshotLinkedList) {
+            return new ArrayList<>(metricsSnapshotLinkedList);
+        }
     }
 
 }

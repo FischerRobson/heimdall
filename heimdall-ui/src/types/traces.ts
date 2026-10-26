@@ -23,5 +23,6 @@ export interface HeimdallTrace {
   cookies: Record<string, string>
   requestBody: string | null
   responseHeaders: Record<string, string>
+  responseBody: string | null
   spans: HeimdallSpan[]
 }

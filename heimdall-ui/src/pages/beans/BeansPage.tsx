@@ -67,6 +67,8 @@ export function BeansPage({ data }: Props) {
   const [searchQuery, setSearchQuery] = useState('')
   const [hiddenScopes, setHiddenScopes] = useState<Set<string>>(new Set())
   const [detail, setDetail] = useState<DetailPanel | null>(null)
+  const [hoveredScope, setHoveredScope] = useState<string | null>(null)
+  const [hoveredNode, setHoveredNode] = useState<string | null>(null)
 
   const scopes = useMemo(() => [...new Set(beans.map(b => b.scope))], [beans])
 
@@ -112,6 +114,11 @@ export function BeansPage({ data }: Props) {
         const matches = bean.id.toLowerCase().includes(searchQuery.toLowerCase())
         opacity = matches ? 1 : 0.1
         if (matches) borderColor = '#f59e0b'
+      }
+
+      if (bean.id === hoveredNode) {
+        bgColor = color.bg.replace('0.08', '0.16')
+        borderColor = color.border
       }
 
       const isParent = connected?.parents.includes(bean.id)
@@ -165,12 +172,12 @@ export function BeansPage({ data }: Props) {
           padding: '10px 14px',
           width: 200,
           cursor: 'pointer',
-          transition: 'opacity 0.2s',
+          transition: 'opacity 0.2s, background 0.15s',
           opacity,
         }
       }
     })
-  }, [visibleBeans, focusedBean, searchQuery, beanEdges])
+  }, [visibleBeans, focusedBean, searchQuery, beanEdges, hoveredNode])
 
   const buildEdges = useCallback((): Edge[] => {
     const connected = focusedBean ? getConnected(focusedBean, beanEdges) : null
@@ -280,12 +287,14 @@ export function BeansPage({ data }: Props) {
               <button
                 key={scope}
                 onClick={() => toggleScope(scope)}
+                onMouseEnter={() => setHoveredScope(scope)}
+                onMouseLeave={() => setHoveredScope(null)}
                 className="border rounded px-2.5 py-1 font-mono text-xs tracking-widest uppercase transition-all"
                 style={{
                   borderColor: color.border,
                   color: isHidden ? '#334155' : color.text,
-                  background: isHidden ? 'transparent' : color.bg,
-                  opacity: isHidden ? 0.4 : 1,
+                  background: isHidden ? 'transparent' : hoveredScope === scope ? color.bg.replace('0.08', '0.16') : color.bg,
+                  opacity: isHidden ? (hoveredScope === scope ? 0.65 : 0.4) : 1,
                 }}
               >
                 {scope.replace('Scoped', '')}
@@ -296,7 +305,7 @@ export function BeansPage({ data }: Props) {
 
         <button
           onClick={reset}
-          className="ml-auto border border-gray-700 rounded-md px-3 py-1.5 font-mono text-xs text-gray-500 hover:border-gray-500 hover:text-gray-300 transition-all"
+          className="ml-auto border border-gray-700 rounded-md px-3 py-1.5 font-mono text-xs text-gray-500 hover:border-gray-500 hover:text-gray-300 hover:bg-white/5 transition-all"
         >
           reset
         </button>
@@ -310,6 +319,8 @@ export function BeansPage({ data }: Props) {
           onEdgesChange={onEdgesChange}
           onNodeClick={handleNodeClick}
           onPaneClick={handlePaneClick}
+          onNodeMouseEnter={(_, node) => setHoveredNode(node.id)}
+          onNodeMouseLeave={() => setHoveredNode(null)}
           fitView
           fitViewOptions={{ padding: 0.3 }}
           proOptions={{ hideAttribution: true }}

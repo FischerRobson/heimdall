@@ -158,7 +158,7 @@ function ConnectionCard({ conn }: { conn: ConnectionInfo }) {
     >
       {/* top row */}
       <div
-        className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-900 transition-colors"
+        className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-white/5 transition-colors"
         onClick={() => setOpen(!open)}
       >
         <div

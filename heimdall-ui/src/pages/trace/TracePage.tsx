@@ -62,8 +62,8 @@ function SpanRow({ span, depth, totalDuration, isSelected, onSelect }: {
 
   return (
     <div
-      className={`grid gap-2 items-center py-1 px-2 rounded cursor-pointer transition-colors 
-        ${isSelected ? 'bg-gray-800' : 'hover:bg-gray-900'}`}
+      className={`grid gap-2 items-center py-1 px-2 rounded cursor-pointer transition-colors
+        ${isSelected ? 'bg-gray-800' : 'hover:bg-white/5'}`}
       style={{ gridTemplateColumns: '220px 1fr 64px' }}
       onClick={e => { e.stopPropagation(); onSelect() }}
     >
@@ -184,7 +184,7 @@ function TraceDetail({ trace, onClose }: { trace: HeimdallTrace; onClose: () => 
             <div className="font-mono text-xs text-gray-500">{trace.duration}ms</div>
             <button
               onClick={onClose}
-              className="font-mono text-xs text-gray-600 hover:text-gray-300 ml-2"
+              className="font-mono text-xs text-gray-600 hover:text-gray-300 hover:bg-white/5 rounded px-1.5 py-0.5 ml-2 transition-colors"
             >
               ✕
             </button>
@@ -198,7 +198,7 @@ function TraceDetail({ trace, onClose }: { trace: HeimdallTrace; onClose: () => 
                 className={`px-4 py-2 font-mono text-xs tracking-widest uppercase transition-colors border-b-2 ${
                   activeTab === tab
                     ? 'text-green-400 border-green-400'
-                    : 'text-gray-600 border-transparent hover:text-gray-400'
+                    : 'text-gray-600 border-transparent hover:text-gray-400 hover:bg-white/5'
                 }`}
               >
                 {tab}
@@ -259,12 +259,25 @@ function TraceDetail({ trace, onClose }: { trace: HeimdallTrace; onClose: () => 
           )}
 
           {activeTab === 'response' && (
-            <div className="p-4">
-              <SectionTitle title="Headers" count={resHeaders.length} />
-              {resHeaders.length > 0
-                ? resHeaders.map(([k, v]) => <KVRow key={k} label={k} value={v} />)
-                : <div className="font-mono text-xs text-gray-700">no response headers captured</div>
-              }
+            <div className="p-4 flex flex-col gap-4">
+              <div>
+                <SectionTitle title="Headers" count={resHeaders.length} />
+                {resHeaders.length > 0
+                  ? resHeaders.map(([k, v]) => <KVRow key={k} label={k} value={v} />)
+                  : <div className="font-mono text-xs text-gray-700">no response headers captured</div>
+                }
+              </div>
+              {trace.responseBody && (
+                <div>
+                  <SectionTitle title="Body" />
+                  <pre className="bg-gray-900 border border-gray-800 rounded p-3 font-mono text-xs text-gray-300 whitespace-pre-wrap break-all">
+                    {trace.responseBody}
+                  </pre>
+                </div>
+              )}
+              {!trace.responseBody && (
+                <div className="font-mono text-xs text-gray-700">no response body</div>
+              )}
             </div>
           )}
         </div>
@@ -380,7 +393,7 @@ export function TracePage() {
             className={`font-mono text-xs tracking-widest uppercase px-3 py-1.5 rounded border transition-all ${
               activeFilter === f
                 ? 'border-green-400 text-green-400 bg-green-400/5'
-                : 'border-gray-700 text-gray-500 hover:border-gray-500'
+                : 'border-gray-700 text-gray-500 hover:border-gray-500 hover:text-gray-300 hover:bg-white/5'
             }`}
           >
             {f}
@@ -408,7 +421,7 @@ export function TracePage() {
               }}
             >
               <div
-                className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-gray-900 transition-colors"
+                className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-white/5 transition-colors"
                 onClick={() => setOpenTrace(isOpen ? null : trace.id)}
               >
                 <div className="font-mono text-xs font-medium w-12 flex-shrink-0" style={{ color: mc }}>

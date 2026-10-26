@@ -1,32 +1,59 @@
 package tracing;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.container.ContainerResponseContext;
+import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.ext.Provider;
 import lombok.RequiredArgsConstructor;
 import org.jboss.resteasy.reactive.server.ServerRequestFilter;
 import org.jboss.resteasy.reactive.server.ServerResponseFilter;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.SequenceInputStream;
+import java.lang.reflect.Array;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 @Provider
 @ApplicationScoped
 @RequiredArgsConstructor
 public class TraceFilter {
 
+    private static final int MAX_BODY_LENGTH = 4000;
+
+    // hard cap on how many bytes/elements we ever buffer for a trace preview, independent
+    // of the real payload size — this filter runs on every request the host app serves,
+    // not just Heimdall's own, so a large upload/report response must never be fully
+    // buffered/re-serialized here just to keep a 4000-char preview.
+    private static final int MAX_CAPTURE_BYTES = 16_384;
+    private static final int MAX_CAPTURE_ELEMENTS = 500;
+
+    // same idea as maskToken()/maskCookie() below, applied to JSON body text — redact by
+    // key name rather than fully parsing the body, so it works regardless of shape.
+    private static final Pattern SENSITIVE_FIELD = Pattern.compile(
+            "(?i)(\"(?:password|secret|token|apikey|api_key|authorization|accessToken|refreshToken)\"\\s*:\\s*)\"[^\"]*\"");
+
     private final TraceContext traceContext;
 
     private final TraceRegistry traceRegistry;
+
+    private final ObjectMapper objectMapper;
 
     @ServerRequestFilter
     public void requestFilter(ContainerRequestContext ctx) {
         Map<String, String> headers  = extractHeaders(ctx);
         Map<String, String> params   = extractParams(ctx);
         Map<String, String> cookies  = extractCookies(ctx);
+        String requestBody           = extractRequestBody(ctx);
 
         HeimdallTrace trace = HeimdallTrace.builder()
                 .id(UUID.randomUUID().toString())
@@ -37,6 +64,7 @@ public class TraceFilter {
                 .requestHeaders(headers)
                 .queryParams(params)
                 .cookies(cookies)
+                .requestBody(requestBody)
                 .build();
 
         traceContext.startTrace(trace);
@@ -53,11 +81,73 @@ public class TraceFilter {
         trace.setDuration(duration);
         trace.setStatus(resCtx.getStatus());
         trace.setResponseHeaders(extractResponseHeaders(resCtx));
+        trace.setResponseBody(extractResponseBody(resCtx));
 
         // skip heimdall's own endpoints
         if (trace.getPath().startsWith("/heimdall") || trace.getPath().startsWith("/q/")) return;
 
         traceRegistry.add(trace);
+    }
+
+    private String extractRequestBody(ContainerRequestContext ctx) {
+        if (!ctx.hasEntity() || !isTextual(ctx.getMediaType())) return null;
+
+        try {
+            InputStream in = ctx.getEntityStream();
+            // only ever buffer the first MAX_CAPTURE_BYTES ourselves — stitch it back
+            // together with whatever's left of the original stream so the real resource
+            // method still sees the complete body, no matter how large it actually is.
+            byte[] head = in.readNBytes(MAX_CAPTURE_BYTES);
+            ctx.setEntityStream(new SequenceInputStream(new ByteArrayInputStream(head), in));
+
+            if (head.length == 0) return null;
+            return redactBody(truncate(new String(head, StandardCharsets.UTF_8)));
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
+    private String extractResponseBody(ContainerResponseContext ctx) {
+        Object entity = ctx.getEntity();
+        if (entity == null || entity instanceof InputStream || entity instanceof byte[]) return null;
+
+        MediaType mediaType = ctx.getMediaType();
+        if (!isTextual(mediaType) || isTooLargeToCapture(entity)) return null;
+
+        try {
+            String body = mediaType.isCompatible(MediaType.APPLICATION_JSON_TYPE)
+                    ? objectMapper.writeValueAsString(entity)
+                    : String.valueOf(entity);
+            return redactBody(truncate(body));
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private boolean isTooLargeToCapture(Object entity) {
+        if (entity instanceof Collection<?> c) return c.size() > MAX_CAPTURE_ELEMENTS;
+        if (entity instanceof Map<?, ?> m) return m.size() > MAX_CAPTURE_ELEMENTS;
+        if (entity.getClass().isArray()) return Array.getLength(entity) > MAX_CAPTURE_ELEMENTS;
+        return false;
+    }
+
+    private boolean isTextual(MediaType mediaType) {
+        if (mediaType == null) return false;
+        return mediaType.isCompatible(MediaType.APPLICATION_JSON_TYPE)
+                || mediaType.isCompatible(MediaType.TEXT_PLAIN_TYPE)
+                || mediaType.isCompatible(MediaType.APPLICATION_XML_TYPE)
+                || mediaType.isCompatible(MediaType.TEXT_XML_TYPE)
+                || mediaType.isCompatible(MediaType.APPLICATION_FORM_URLENCODED_TYPE);
+    }
+
+    private String truncate(String body) {
+        if (body == null || body.length() <= MAX_BODY_LENGTH) return body;
+        return body.substring(0, MAX_BODY_LENGTH) + "... (truncated)";
+    }
+
+    private String redactBody(String body) {
+        if (body == null) return null;
+        return SENSITIVE_FIELD.matcher(body).replaceAll("$1\"***\"");
     }
 
     private Map<String, String> extractHeaders(ContainerRequestContext ctx) {

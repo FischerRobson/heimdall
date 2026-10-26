@@ -91,6 +91,8 @@ Reads from `ThreadMXBean` with per-thread state inspection:
 | Timed Waiting | Threads waiting with a timeout |
 | Peak | Highest thread count since JVM start |
 
+Full thread dumps are also available on demand — every live thread's state, stack trace, held/awaited locks, and any detected deadlocks, captured via `ThreadMXBean.dumpAllThreads()`.
+
 ### CPU & System
 Reads from `com.sun.management.OperatingSystemMXBean`:
 
@@ -222,7 +224,7 @@ heimdall.history.limit=60
 | GET | `/heimdall/api/docker/host` | Docker host info |
 | GET | `/heimdall/api/health` | Heimdall agent health *(coming soon)* |
 | GET | `/heimdall/api/alerts` | Active alerts *(coming soon)* |
-| GET | `/heimdall/api/threads/dump` | Thread dump on demand *(coming soon)* |
+| GET | `/heimdall/api/threads/dump` | Thread dump on demand |
 
 ---
 
@@ -260,10 +262,6 @@ heimdall.alert.pool.usage.threshold=85
 ```
 
 Alerts appear as badges in the dashboard header and as a dedicated alert panel showing current and recent triggered alerts. Browser notifications via the Web Notifications API are also planned.
-
-### Phase 5 — Thread dump on demand
-
-Request a full thread dump from the dashboard at any time — useful for diagnosing deadlocks and performance issues without restarting the application.
 
 ### Phase 6 — Kubernetes monitoring (`heimdall-kubernetes`)
 

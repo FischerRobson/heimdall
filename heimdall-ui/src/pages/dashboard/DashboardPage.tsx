@@ -7,25 +7,48 @@ import { ThreadInfo } from "../../components/ThreadInfo";
 import { Metrics } from "../../types/metrics";
 import { BifrostLoader } from "../../components/BifrostLoader";
 
+const HISTORY_LIMIT = 60
+const RECONNECT_DELAY_MS = 2000
+
 export function DashboardPage() {
   const [metrics, setMetrics] = useState<Metrics | null>(null)
   const [history, setHistory] = useState<SnapshotEntry[]>([])
 
   useEffect(() => {
-    const fetch_metrics = () => {
-      fetch('/heimdall/api/metrics')
-        .then(res => res.json())
-        .then(data => setMetrics(data))
-        .catch(err => console.error(err))
+    let socket: WebSocket | null = null
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+    let stopped = false
 
-      fetch('/heimdall/api/metrics/history')
-        .then(res => res.json())
-        .then(data => setHistory(data))
-        .catch(err => console.error(err))
+    const connect = () => {
+      const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws'
+      socket = new WebSocket(`${protocol}://${window.location.host}/heimdall/ws/metrics`)
+
+      socket.onmessage = (event) => {
+        const data = JSON.parse(event.data)
+
+        if (Array.isArray(data)) {
+          setHistory(data)
+          if (data.length > 0) setMetrics(data[data.length - 1].metrics)
+        } else {
+          setHistory(prev => [...prev.slice(-(HISTORY_LIMIT - 1)), data])
+          setMetrics(data.metrics)
+        }
+      }
+
+      socket.onclose = () => {
+        if (!stopped) reconnectTimer = setTimeout(connect, RECONNECT_DELAY_MS)
+      }
+
+      socket.onerror = () => socket?.close()
     }
-    fetch_metrics()
-    const interval = setInterval(fetch_metrics, 3000)
-    return () => clearInterval(interval)
+
+    connect()
+
+    return () => {
+      stopped = true
+      if (reconnectTimer) clearTimeout(reconnectTimer)
+      socket?.close()
+    }
   }, [])
 
   if (!metrics) return <BifrostLoader />

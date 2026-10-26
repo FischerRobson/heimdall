@@ -7,11 +7,13 @@ import { DockerPage } from './pages/docker/DockerPage'
 import { DashboardPage } from './pages/dashboard/DashboardPage'
 import { TracePage } from './pages/trace/TracePage'
 import { ConnectionsPage } from './pages/connections/ConnectionsPage'
+import { ThreadDumpPage } from './pages/threads/ThreadDumpPage'
 
 export function App() {
   const [metrics, setMetrics] = useState<Metrics | null>(null)
   const [beanGraph, setBeanGraph] = useState<{ nodes: any[], edges: any[] } | null>(null)
-  const [page, setPage] = useState<'dashboard' | 'docker' | 'beans' | 'trace' | 'conns'>('dashboard')
+  const [page, setPage] = useState<'dashboard' | 'docker' | 'beans' | 'trace' | 'conns' | 'threads'>('dashboard')
+  const [hoveredPage, setHoveredPage] = useState<string | null>(null)
 
   useEffect(() => {
     const fetch_metrics = () => {
@@ -40,15 +42,17 @@ export function App() {
           <JvmInfo data={metrics.jvmInfo} />
         </h1>
         <div className="flex gap-2 mb-2">
-          {(['dashboard', 'docker', 'beans', 'trace', 'conns'] as const).map(p => (
+          {(['dashboard', 'docker', 'beans', 'trace', 'conns', 'threads'] as const).map(p => (
             <button
               key={p}
               onClick={() => setPage(p)}
+              onMouseEnter={() => setHoveredPage(p)}
+              onMouseLeave={() => setHoveredPage(null)}
               className="font-mono text-xs tracking-widest uppercase px-3 py-1.5 rounded border transition-all"
               style={{
-                borderColor: page === p ? '#00e5a0' : '#1e2433',
-                color: page === p ? '#00e5a0' : '#64748b',
-                background: page === p ? 'rgba(0,229,160,0.06)' : 'transparent'
+                borderColor: page === p ? '#00e5a0' : hoveredPage === p ? '#334155' : '#1e2433',
+                color: page === p ? '#00e5a0' : hoveredPage === p ? '#94a3b8' : '#64748b',
+                background: page === p ? 'rgba(0,229,160,0.06)' : hoveredPage === p ? 'rgba(255,255,255,0.05)' : 'transparent'
               }}
             >
               {p}
@@ -60,6 +64,7 @@ export function App() {
         {page === 'beans' && beanGraph && <BeansPage data={beanGraph} />}
         {page === 'trace' && <TracePage />}
         {page === 'conns' && <ConnectionsPage />}
+        {page === 'threads' && <ThreadDumpPage />}
       </div>
     </div>
   )

@@ -6,6 +6,13 @@ export interface MemoryInfo {
   percentage: number
 }
 
+export interface GcResult {
+  before: MemoryInfo
+  after: MemoryInfo
+  freedMb: number
+  durationMs: number
+}
+
 export interface GarbageCollector {
   name: string
   collectionCount: number

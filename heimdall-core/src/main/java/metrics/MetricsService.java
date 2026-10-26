@@ -13,7 +13,7 @@ import java.util.*;
 @HeimdallMonitor
 public class MetricsService {
 
-    private MemoryInfo getMemoryInfo() {
+    public MemoryInfo getMemoryInfo() {
         MemoryMXBean memoryMXBean = ManagementFactory.getMemoryMXBean();
         MemoryUsage memoryUsage = memoryMXBean.getHeapMemoryUsage();
 
@@ -106,6 +106,19 @@ public class MetricsService {
 
     public Metrics getMetrics() {
         return new Metrics(getMemoryInfo(), getGarbageCollectorInfo(), getThreadInfo(), getCPUInfo(), getJvmInfo());
+    }
+
+    public GcResult triggerGarbageCollection() {
+        MemoryInfo before = getMemoryInfo();
+
+        long start = System.currentTimeMillis();
+        System.gc();
+        long durationMs = System.currentTimeMillis() - start;
+
+        MemoryInfo after = getMemoryInfo();
+        double freedMb = before.getInUsage() - after.getInUsage();
+
+        return new GcResult(before, after, freedMb, durationMs);
     }
 
 }

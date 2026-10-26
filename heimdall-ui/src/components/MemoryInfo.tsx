@@ -1,15 +1,44 @@
-import { MemoryInfo as MemoryInfoType } from '../types/metrics'
+import { useState } from 'react'
+import { MemoryInfo as MemoryInfoType, GcResult } from '../types/metrics'
 
 interface Props {
   data: MemoryInfoType
 }
 
 export function MemoryInfo({ data }: Props) {
+  const [running, setRunning] = useState(false)
+  const [result, setResult] = useState<GcResult | null>(null)
+
+  const runGc = () => {
+    setRunning(true)
+    setResult(null)
+    fetch('/heimdall/api/metrics/gc', { method: 'POST' })
+      .then(res => res.json())
+      .then((data: GcResult) => setResult(data))
+      .catch(() => {})
+      .finally(() => setRunning(false))
+  }
+
   return (
     <div className="bg-gray-900 border border-gray-700 rounded-xl p-5">
-      <h2 className="text-green-400 font-mono text-xs tracking-widest uppercase mb-4">
-        Heap Memory
-      </h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-green-400 font-mono text-xs tracking-widest uppercase">
+          Heap Memory
+        </h2>
+        <button
+          onClick={runGc}
+          disabled={running}
+          className="font-mono text-xs tracking-widest uppercase px-2.5 py-1 rounded border border-gray-700 text-gray-400 hover:border-green-400 hover:text-green-400 hover:bg-green-400/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {running ? 'running…' : 'run gc'}
+        </button>
+      </div>
+
+      {result && (
+        <div className="mb-3 font-mono text-xs text-gray-500">
+          freed {Math.max(result.freedMb, 0).toFixed(1)} MB in {result.durationMs}ms
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-3 mb-4">
         <div className="bg-gray-800 rounded-lg p-3">

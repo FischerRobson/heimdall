@@ -74,11 +74,11 @@ const tabs: Record<MetricKey, TabConfig> = {
     label: 'GC',
     color: '#f59e0b',
     activeClass: 'border-[#f59e0b] text-[#f59e0b] bg-[#f59e0b]/5',
-    getValue: (m) => m.garbageCollectorInfo.reduce((acc, gc) => acc + gc.collectionCount, 0),
+    getValue: (m) => m.garbageCollectorInfo.garbageCollectorList.reduce((acc, gc) => acc + gc.collectionCount, 0),
     getUnit: () => 'collections',
-    getSub: (m) => `${m.garbageCollectorInfo.reduce((acc, gc) => acc + gc.collectionTime, 0)}ms total`,
+    getSub: (m) => `${m.garbageCollectorInfo.garbageCollectorList.reduce((acc, gc) => acc + gc.collectionTime, 0)}ms total`,
     getDataKey: () => 'gc',
-    getSubStats: (m) => m.garbageCollectorInfo.map(gc => ({
+    getSubStats: (m) => m.garbageCollectorInfo.garbageCollectorList.map(gc => ({
       label: gc.name.replace('G1 ', '').toUpperCase(),
       value: `${gc.collectionCount} · ${gc.collectionTime}ms`
     }))
@@ -106,7 +106,7 @@ export function MetricsChart({ history }: Props) {
             key={key}
             onClick={() => setSelected(key)}
             className={`border rounded-md px-3 py-1.5 font-mono text-xs tracking-widest uppercase transition-all
-              ${selected === key ? tabs[key].activeClass : 'border-gray-700 text-gray-500 hover:border-gray-500 hover:text-gray-300'}`}
+              ${selected === key ? tabs[key].activeClass : 'border-gray-700 text-gray-500 hover:border-gray-500 hover:text-gray-300 hover:bg-white/5'}`}
           >
             {tabs[key].label}
           </button>

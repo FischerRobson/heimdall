@@ -7,14 +7,23 @@ import jakarta.interceptor.InvocationContext;
 import lombok.RequiredArgsConstructor;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
+import java.lang.reflect.Parameter;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 @Interceptor
 @Priority(Interceptor.Priority.APPLICATION)
 @RequiredArgsConstructor
 @HeimdallMonitor
 public class HeimdallInterceptor {
+
+    private static final int MAX_TAG_VALUE_LENGTH = 200;
+
+    // same list of sensitive field names TraceFilter redacts in headers/cookies/body —
+    // argument names get checked against it before the raw value is ever put in a tag.
+    private static final Pattern SENSITIVE_ARG_NAME = Pattern.compile(
+            "(?i)^(password|secret|token|apikey|api_key|authorization|accesstoken|refreshtoken|credential)$");
 
     private final TraceContext traceContext;
 
@@ -23,20 +32,9 @@ public class HeimdallInterceptor {
 
     @AroundInvoke
     public Object intercept(InvocationContext ctx) throws Exception {
-        System.out.println("[Heimdall] intercept called on: "
-                + ctx.getTarget().getClass().getSuperclass().getName()
-                + "." + ctx.getMethod().getName());
-
-        if (!traceContext.hasActiveTrace()) {
-            System.out.println("[Heimdall] no active trace, skipping");
+        if (!traceContext.hasActiveTrace() || !shouldTrace(ctx)) {
             return ctx.proceed();
         }
-        if (!shouldTrace(ctx)) {
-            System.out.println("[Heimdall] shouldTrace=false, skipping");
-            return ctx.proceed();
-        }
-        if (!traceContext.hasActiveTrace()) return ctx.proceed();
-        if (!shouldTrace(ctx))             return ctx.proceed();
 
         String className  = ctx.getTarget().getClass().getSuperclass().getSimpleName();
         String methodName = ctx.getMethod().getName();
@@ -51,11 +49,15 @@ public class HeimdallInterceptor {
                 .startTime(System.currentTimeMillis())
                 .build();
 
+        tagArguments(span, ctx);
         traceContext.startSpan(span);
 
         long start = System.currentTimeMillis();
         try {
             Object result = ctx.proceed();
+            if (result != null) {
+                span.getTags().put("returnType", result.getClass().getSimpleName());
+            }
             traceContext.endSpan(spanId, System.currentTimeMillis() - start, null);
             return result;
         } catch (Exception e) {
@@ -64,13 +66,37 @@ public class HeimdallInterceptor {
         }
     }
 
+    // automatic tags — captures actual values for simple/printable argument types
+    // (String, numbers, booleans, enums) and just the class name for anything else,
+    // so we never dump arbitrary/potentially sensitive object graphs into a trace.
+    // App code can add richer, intentional context via Heimdall.tag(key, value).
+    private void tagArguments(HeimdallSpan span, InvocationContext ctx) {
+        Object[] values = ctx.getParameters();
+        if (values == null || values.length == 0) return;
+
+        Parameter[] params = ctx.getMethod().getParameters();
+        for (int i = 0; i < values.length; i++) {
+            String name = i < params.length ? params[i].getName() : "arg" + i;
+            boolean sensitive = SENSITIVE_ARG_NAME.matcher(name).matches();
+            span.getTags().put(name, sensitive ? "***" : describeArgument(values[i]));
+        }
+    }
+
+    private String describeArgument(Object value) {
+        if (value == null) return "null";
+        // instanceof Enum covers constant-specific class bodies too (e.g. enum X { A { ... } }),
+        // where getClass() returns the anonymous per-constant subclass, not the enum type itself.
+        if (value instanceof CharSequence || value instanceof Number || value instanceof Boolean
+                || value instanceof Character || value instanceof Enum<?>) {
+            String s = String.valueOf(value);
+            return s.length() > MAX_TAG_VALUE_LENGTH ? s.substring(0, MAX_TAG_VALUE_LENGTH) + "..." : s;
+        }
+        return value.getClass().getSimpleName();
+    }
+
     private boolean shouldTrace(InvocationContext ctx) {
         String className  = ctx.getTarget().getClass().getSuperclass().getName();
         String simpleName = ctx.getTarget().getClass().getSuperclass().getSimpleName();
-
-        System.out.println("[HEIMDALL]: " + className);
-        System.out.println("[HEIMDALL]: " + simpleName);
-
 
         // skip true framework internals only
         if (className.startsWith("io.quarkus")

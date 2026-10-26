@@ -7,7 +7,10 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     proxy: {
-      '/heimdall': 'http://localhost:8080'
+      '/heimdall': {
+        target: 'http://localhost:8080',
+        ws: true,
+      }
     }
   }
 })

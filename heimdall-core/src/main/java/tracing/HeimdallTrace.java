@@ -25,6 +25,7 @@ public class HeimdallTrace {
     private Map<String, String> cookies;
     private String requestBody;
     private Map<String, String> responseHeaders;
+    private String responseBody;
     @Builder.Default
     private List<HeimdallSpan> spans = new ArrayList<>();
 
