@@ -58,8 +58,8 @@
                 <extensions>true</extensions>
                 <executions>
                     <execution>
+                        <!-- library module: no `build` goal -->
                         <goals>
-                            <goal>build</goal>
                             <goal>generate-code</goal>
                             <goal>generate-code-tests</goal>
                         </goals>

@@ -26,7 +26,7 @@ export function BifrostLoader() {
 
       <div style={{ position: 'relative', width: '380px', height: '380px' }}>
         <video
-          src="/bifrost.mp4"
+          src={`${import.meta.env.BASE_URL}bifrost.mp4`}
           autoPlay
           loop
           muted

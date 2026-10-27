@@ -63,8 +63,25 @@
         </dependency>
     </dependencies>
 
+    <properties>
+        <ui.dir>${project.basedir}/../heimdall-ui</ui.dir>
+    </properties>
+
     <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+            <!-- the built dashboard, served by the host application at /heimdall/ -->
+            <resource>
+                <directory>${ui.dir}/dist</directory>
+                <targetPath>META-INF/resources/heimdall</targetPath>
+            </resource>
+        </resources>
+
         <plugins>
+            <!-- library module: no `build` goal (that would package a runnable app nobody
+                 uses); generate-code is kept for @QuarkusTest -->
             <plugin>
                 <groupId>${quarkus.platform.group-id}</groupId>
                 <artifactId>quarkus-maven-plugin</artifactId>
@@ -73,10 +90,52 @@
                 <executions>
                     <execution>
                         <goals>
-                            <goal>build</goal>
                             <goal>generate-code</goal>
                             <goal>generate-code-tests</goal>
                         </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- builds heimdall-ui (downloading its own Node) before resources are copied,
+                 so `mvn install` produces a jar with the dashboard inside.
+                 Skip with -Dskip.npm -Dskip.installnodenpm to reuse an existing dist/. -->
+            <plugin>
+                <groupId>com.github.eirslett</groupId>
+                <artifactId>frontend-maven-plugin</artifactId>
+                <version>1.15.1</version>
+                <configuration>
+                    <workingDirectory>${ui.dir}</workingDirectory>
+                    <installDirectory>${project.build.directory}</installDirectory>
+                    <nodeVersion>v20.18.0</nodeVersion>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>install-node-and-npm</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>install-node-and-npm</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>npm-ci</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <configuration>
+                            <arguments>ci</arguments>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>npm-build</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <configuration>
+                            <arguments>run build</arguments>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>
