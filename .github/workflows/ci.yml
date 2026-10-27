@@ -38,11 +38,9 @@ jobs:
 
       - run: npm ci
 
-      # non-blocking until the existing code is confirmed to type-check cleanly
-      # (vite build does not type-check) — remove continue-on-error once it's green
+      # vite build does not type-check, so run tsc separately
       - name: Type check
         run: npx tsc --noEmit -p .
-        continue-on-error: true
 
       - name: Build
         run: npm run build

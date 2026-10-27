@@ -179,6 +179,8 @@ Node is **not** required — the Maven build downloads its own copy to build the
 
 ### Adding Heimdall to your project
 
+> Step-by-step guide with a test checklist (in Portuguese): [TESTING.md](TESTING.md)
+
 Heimdall isn't published to Maven Central yet, so install it into your local Maven repository first:
 
 ```bash
