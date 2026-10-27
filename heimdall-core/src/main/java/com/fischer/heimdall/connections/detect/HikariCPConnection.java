@@ -10,70 +10,77 @@ import javax.management.ObjectName;
 import java.lang.management.ManagementFactory;
 import java.time.Instant;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @ApplicationScoped
 @HeimdallMonitor
 public class HikariCPConnection {
 
+    // HikariCP (register-mbeans=true) publishes, per pool:
+    //   com.zaxxer.hikari:type=Pool (<poolName>)        live counts
+    //   com.zaxxer.hikari:type=PoolConfig (<poolName>)  settings, incl. MaximumPoolSize
+    // The pool name is only inside the "type" value — there is no "name" key.
+    private static final Pattern POOL_TYPE = Pattern.compile("^Pool \\((.*)\\)$");
+
     public void detect(List<ConnectionInfo> connectionInfoList) {
         MBeanServer mBeanServer = ManagementFactory.getPlatformMBeanServer();
 
+        Set<ObjectName> hikariPools;
         try {
-            ObjectName hikariPattern = new ObjectName("com.zaxxer.hikari:type=Pool (*),*");
-            Set<ObjectName> hikariPools = mBeanServer.queryNames(hikariPattern, null);
-
-            for (ObjectName poolName : hikariPools) {
-                int active  = (int) getAttribute(mBeanServer, poolName, "ActiveConnections");
-                int idle    = (int) getAttribute(mBeanServer, poolName, "IdleConnections");
-                int total   = (int) getAttribute(mBeanServer, poolName, "TotalConnections");
-                int pending = (int) getAttribute(mBeanServer, poolName, "ThreadsAwaitingConnection");
-                int max     = (int) getAttribute(mBeanServer, poolName, "MaxConnections");
-
-                double usage = max > 0
-                        ? Math.round((double) active / max * 1000.0) / 10.0
-                        : 0.0;
-
-                String status = pending > 0 ? "DEGRADED" : "UP";
-
-                Map<String, Object> stats = new LinkedHashMap<>();
-                stats.put("activeConnections", active);
-                stats.put("idleConnections",   idle);
-                stats.put("totalConnections",  total);
-                stats.put("pendingThreads",    pending);
-                stats.put("maxConnections",    max);
-                stats.put("usagePercent",      usage);
-
-                String name = poolName.getKeyProperty("name")
-                        .replaceAll("[()]", "");
-
-                connectionInfoList.add(ConnectionInfo.builder()
-                        .name(name)
-                        .type("database")
-                        .technology("HikariCP")
-                        .status(status)
-                        .stats(stats)
-                        .checkedAt(Instant.now())
-                        .build());
-            }
-
+            hikariPools = mBeanServer.queryNames(new ObjectName("com.zaxxer.hikari:type=Pool (*),*"), null);
         } catch (MalformedObjectNameException e) {
+            return; // constant pattern, can't happen
+        }
+
+        for (ObjectName poolBean : hikariPools) {
+            Matcher m = POOL_TYPE.matcher(String.valueOf(poolBean.getKeyProperty("type")));
+            String name = m.matches() ? m.group(1) : poolBean.getCanonicalName();
+
+            int active  = getInt(mBeanServer, poolBean, "ActiveConnections");
+            int idle    = getInt(mBeanServer, poolBean, "IdleConnections");
+            int total   = getInt(mBeanServer, poolBean, "TotalConnections");
+            int pending = getInt(mBeanServer, poolBean, "ThreadsAwaitingConnection");
+            int max     = getInt(mBeanServer, configBean(name), "MaximumPoolSize");
+
+            double usage = max > 0
+                    ? Math.round((double) active / max * 1000.0) / 10.0
+                    : 0.0;
+
+            Map<String, Object> stats = new LinkedHashMap<>();
+            stats.put("activeConnections", active);
+            stats.put("idleConnections",   idle);
+            stats.put("totalConnections",  total);
+            stats.put("pendingThreads",    pending);
+            stats.put("maxConnections",    max);
+            stats.put("usagePercent",      usage);
+
             connectionInfoList.add(ConnectionInfo.builder()
-                    .name("HikariCP")
+                    .name(name)
                     .type("database")
                     .technology("HikariCP")
-                    .status("DOWN")
-                    .stats(Map.of("error", String.valueOf(e.getMessage())))
+                    .status(pending > 0 ? "DEGRADED" : "UP")
+                    .stats(stats)
                     .checkedAt(Instant.now())
                     .build());
         }
     }
 
-    private Object getAttribute(MBeanServer server, ObjectName name, String attribute) {
+    private ObjectName configBean(String poolName) {
         try {
-            return server.getAttribute(name, attribute);
+            return new ObjectName("com.zaxxer.hikari:type=PoolConfig (" + poolName + ")");
+        } catch (MalformedObjectNameException e) {
+            return null;
+        }
+    }
+
+    /** 0 when the bean or attribute is missing or not a number. */
+    private int getInt(MBeanServer server, ObjectName name, String attribute) {
+        if (name == null) return 0;
+        try {
+            return server.getAttribute(name, attribute) instanceof Number n ? n.intValue() : 0;
         } catch (Exception e) {
             return 0;
         }
     }
-
 }

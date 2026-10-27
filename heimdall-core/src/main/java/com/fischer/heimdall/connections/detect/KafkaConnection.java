@@ -37,6 +37,9 @@ public class KafkaConnection {
             for (ObjectName bean : consumerBeans) {
                 String clientId = bean.getKeyProperty("client-id");
                 if (clientId == null) continue;
+                // per-topic / per-partition beans match the same query; only the
+                // client-level bean holds the totals, the others would overwrite them
+                if (bean.getKeyProperty("topic") != null || bean.getKeyProperty("partition") != null) continue;
 
                 byClient.computeIfAbsent(clientId, k -> new LinkedHashMap<>());
                 Map<String, Object> stats = byClient.get(clientId);

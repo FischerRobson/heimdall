@@ -8,7 +8,7 @@ Em 26/10/2026, o build, os testes e o demo foram verificados assim: endpoints, t
 
 - **Java 21+** (testado com GraalVM 21 via sdkman)
 - **Maven**: não precisa instalar, o projeto usa o wrapper `./mvnw`
-- **Node**: não precisa para o build (o Maven baixa o próprio Node para buildar a UI). Só é necessário para o modo de desenvolvimento da UI com hot reload (`npm run dev`); testado com Node 24 via nvm
+- **Node**: não precisa para o build (o Maven baixa o próprio Node para buildar a UI). Só é necessário para o modo de desenvolvimento da UI com hot reload (`npm run dev`); testado com Node 24 via nvm. O build e o CI usam Node 24 (`nodeVersion` no `heimdall-core/pom.xml`)
 
 > Com sdkman/nvm, abra um terminal novo (ou rode `source ~/.sdkman/bin/sdkman-init.sh` e `nvm use`) para `java` e `node` estarem no PATH.
 
@@ -189,10 +189,14 @@ cd heimdall-ui && npm install && npm run dev
 ## 5. Rodar só os testes
 
 ```bash
-./mvnw verify                                   # backend (30 testes)
+./mvnw verify                                   # backend (60 testes)
 cd heimdall-ui && npx tsc --noEmit -p .         # type check do frontend
 cd heimdall-ui && npm run build                 # build do frontend
 ```
+
+**Cobertura:** o `verify` gera `heimdall-core/target/jacoco-report/index.html` (via `quarkus-jacoco`). Só conta os testes `@QuarkusTest` — testes unitários puros (ex.: `ByteConverterTest`) rodam mas não entram no número. Em 27/10/2026: 87% das linhas, 69% dos branches.
+
+**Se trocar a versão do Node no `pom.xml`**, apague `heimdall-core/target/node` (ou rode `./mvnw clean`): o npm antigo que fica lá quebra o `npm ci` com `Class extends value undefined is not a constructor or null`.
 
 O CI (`.github/workflows/ci.yml`) roda os mesmos passos em push para `master` e em PRs.
 

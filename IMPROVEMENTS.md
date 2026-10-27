@@ -2,7 +2,7 @@
 
 Estado do projeto após a revisão de código de outubro/2026 e plano das próximas etapas. Os itens concluídos ficam registrados com o commit correspondente; o restante está em ordem de prioridade.
 
-> Build, testes (30) e demo validados rodando em 27/10/2026 — ver `TESTING.md`.
+> Build, testes (60) e demo validados rodando em 27/10/2026 — ver `TESTING.md`.
 
 ---
 
@@ -61,7 +61,17 @@ Primeira suíte (`heimdall-core/src/test`) cobrindo API, interceptor, `TraceCont
 
 ### Manutenção dos workflows
 
-`actions/checkout`, `actions/setup-java` e `actions/setup-node` atualizadas de `@v4` para `@v5` em `ci.yml` e `release.yml` (as v4 rodavam em Node 20, depreciado nos runners).
+`actions/checkout`, `actions/setup-java` e `actions/setup-node` atualizadas de `@v4` para `@v5` em `ci.yml` e `release.yml` (as v4 rodavam em Node 20, depreciado nos runners). Node do build e do CI: 20 → 24 (o 20 saiu de suporte em abril/2026).
+
+### Cobertura de testes do backend
+
+- 30 → 60 testes; cobertura de linhas 58% → 87% (branches 42% → 69%), medida com `quarkus-jacoco`.
+- Detectores Kafka/Hikari/Redis/RabbitMQ testados com MBeans falsos no MBeanServer (`FakeMBeans`) e, no RabbitMQ, a API de management servida por um HTTP server local.
+- Captura de traces: bodies e headers/cookies sensíveis mascarados, `Heimdall.tag()`, `/traces/errors`, limite do registro; endpoints de métricas (histórico, GC, heap dump) e readiness.
+- Bugs encontrados pelos testes e corrigidos:
+  - **Hikari** — o detector procurava a chave `name` no ObjectName, mas o Hikari registra `com.zaxxer.hikari:type=Pool (<nome>)`: NPE e `/connections` respondia 500 em qualquer app com Hikari e `register-mbeans=true`. O máximo agora vem do bean `PoolConfig` (`MaximumPoolSize`); antes `MaxConnections` não existia e o uso ficava sempre 0%.
+  - **Kafka** — os beans por tópico/partição batem na mesma query e sobrescreviam os totais do cliente, dependendo da ordem.
+  - **RabbitMQ** — o JSON inteiro da API (`rawJson`) não vai mais para os stats exibidos na UI.
 
 ### Estatísticas por método (Fase 2)
 
@@ -123,10 +133,9 @@ Kubernetes (`heimdall-kubernetes`), Spring Boot starter, monitoramento multi-ins
 
 ## 4. Débitos menores encontrados na revisão
 
-- `RabbitMQConnection.parseOverview` coloca o JSON inteiro (`rawJson`) nos stats exibidos na UI.
 - Memória dos containers Docker inclui page cache (o `docker stats` desconta `inactive_file`).
 - `quarkus.redis.port` não é uma propriedade real do Quarkus (`RedisConnection`).
 - `MetricsService.getThreadInfo` chama `getThreadInfo(id)` uma vez por thread — usar a versão em lote.
 - `HealthResource` tem a versão `"1.0.0"` fixa no código.
 - Stats por método: um único erro deixa o método vermelho até `clear stats`, e exceções de cliente (ex.: `NotFoundException` → 404) contam como erro. Avaliar janela de tempo / taxa de erro e ignorar 4xx.
-- Mais testes: detectores Kafka/Redis/RabbitMQ e testes de frontend (Vitest) para utilitários como `diffDumps` e `toCsv`.
+- Mais testes: frontend (Vitest) para utilitários como `diffDumps` e `toCsv`; os mappers de exceção por resource e os caminhos de detecção via CDI (Redis/RabbitMQ) seguem sem teste.

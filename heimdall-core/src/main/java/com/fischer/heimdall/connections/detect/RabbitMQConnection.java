@@ -184,8 +184,6 @@ public class RabbitMQConnection {
     private Map<String, Object> parseOverview(String json) {
         Map<String, Object> stats = new LinkedHashMap<>();
 
-        stats.put("rawJson", json);
-
         // basic parsing without pulling in extra deps
         stats.put("queueTotals",    extractJsonValue(json, "queue_totals"));
         stats.put("messageStats",   extractJsonValue(json, "message_stats"));

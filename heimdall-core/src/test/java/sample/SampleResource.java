@@ -1,11 +1,15 @@
 package sample;
 
 import jakarta.inject.Inject;
+import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
+
+import java.util.Map;
 import com.fischer.heimdall.tracing.HeimdallMonitor;
 
 /**
@@ -31,5 +35,15 @@ public class SampleResource {
     @Path("/boom")
     public void boom() {
         sampleService.fail();
+    }
+
+    /** Echoes a JSON body back — exercises request/response body capture and redaction. */
+    @POST
+    @Path("/login")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Map<String, Object> login(Map<String, Object> body) {
+        sampleService.tagged(String.valueOf(body.get("user")));
+        return Map.of("user", String.valueOf(body.get("user")), "token", "abc.def.ghi");
     }
 }

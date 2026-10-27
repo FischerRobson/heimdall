@@ -1,6 +1,7 @@
 package sample;
 
 import jakarta.enterprise.context.ApplicationScoped;
+import com.fischer.heimdall.tracing.Heimdall;
 import com.fischer.heimdall.tracing.HeimdallMonitor;
 
 /**
@@ -21,5 +22,13 @@ public class SampleService {
 
     public void failWithError() {
         throw new AssertionError();
+    }
+
+    /** Adds custom tags to the current span through the public Heimdall API. */
+    public void tagged(String user) {
+        Heimdall.tag("user", user);
+        Heimdall.tag("attempt", 1);
+        Heimdall.tag("missing", null);
+        Heimdall.tag(" ", "ignored");   // blank keys are dropped
     }
 }

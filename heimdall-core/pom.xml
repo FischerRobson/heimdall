@@ -61,6 +61,13 @@
             <artifactId>rest-assured</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- coverage report for the @QuarkusTest runs (plain unit tests are not counted):
+             target/jacoco-report/index.html -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-jacoco</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <properties>
@@ -107,7 +114,7 @@
                 <configuration>
                     <workingDirectory>${ui.dir}</workingDirectory>
                     <installDirectory>${project.build.directory}</installDirectory>
-                    <nodeVersion>v20.18.0</nodeVersion>
+                    <nodeVersion>v24.22.1</nodeVersion>
                 </configuration>
                 <executions>
                     <execution>
