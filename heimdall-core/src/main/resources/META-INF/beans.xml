@@ -1,6 +1,4 @@
-<beans xmlns="https://jakarta.ee/xml/ns/jakartaee"
-       version="4.0">
-    <interceptors>
-        <class>tracing.HeimdallInterceptor</class>
-    </interceptors>
-</beans>
+<!-- Marker so Quarkus discovers Heimdall's beans when this jar is a dependency of
+     another application (Quarkus only uses beans.xml as a marker and ignores its
+     content; HeimdallInterceptor is enabled globally through @Priority). -->
+<beans xmlns="https://jakarta.ee/xml/ns/jakartaee" version="4.0" bean-discovery-mode="annotated"/>

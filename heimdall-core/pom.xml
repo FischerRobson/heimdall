@@ -35,10 +35,6 @@
         </dependency>
         <dependency>
             <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-smallrye-openapi</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.quarkus</groupId>
             <artifactId>quarkus-websockets-next</artifactId>
         </dependency>
         <dependency>
@@ -48,10 +44,6 @@
         <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-scheduler</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.camel.quarkus</groupId>
-            <artifactId>camel-quarkus-vertx-http</artifactId>
         </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>
@@ -68,14 +60,6 @@
             <groupId>io.rest-assured</groupId>
             <artifactId>rest-assured</artifactId>
             <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.fischer</groupId>
-            <artifactId>heimdall-docker</artifactId>
-            <version>${project.version}</version>
-            <!-- on the classpath when running heimdall-core itself (dev mode), but not
-                 pulled in transitively — apps opt in by adding heimdall-docker explicitly -->
-            <optional>true</optional>
         </dependency>
     </dependencies>
 

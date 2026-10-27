@@ -1,0 +1,3 @@
+<!-- Marker so Quarkus discovers the Docker beans when this jar is a dependency of
+     another application (Quarkus only uses beans.xml as a marker). -->
+<beans xmlns="https://jakarta.ee/xml/ns/jakartaee" version="4.0" bean-discovery-mode="annotated"/>
