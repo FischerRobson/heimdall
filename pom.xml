@@ -11,6 +11,8 @@
     <modules>
         <module>heimdall-core</module>
         <module>heimdall-docker</module>
+        <!-- example host app used for development; not published -->
+        <module>heimdall-demo</module>
     </modules>
 
     <properties>

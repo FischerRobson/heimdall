@@ -30,31 +30,29 @@ Heimdall is organized as a Maven multi-module project:
 
 ```
 heimdall/
-├── heimdall-core/        ← Quarkus application — all JVM monitoring, REST endpoints, React UI
-├── heimdall-docker/      ← Optional module — Docker container monitoring
-└── heimdall-ui/          ← React + Vite frontend (builds into heimdall-core resources)
+├── heimdall-core/        ← library — JVM monitoring, tracing, REST endpoints + the bundled dashboard
+├── heimdall-docker/      ← optional library — Docker container monitoring
+├── heimdall-ui/          ← React + Vite dashboard (packaged into the heimdall-core jar)
+└── heimdall-demo/        ← example host application, used to develop and try Heimdall
 ```
 
 ### heimdall-core
 
-The main runnable module. Contains all JVM metric collection, REST endpoints, CDI bean graph, connection detection, metrics history, and the React dashboard. This is what you run with `quarkus:dev` and what users add as a dependency.
+The library applications add as a dependency. Contains all JVM metric collection, request/method tracing, REST endpoints, CDI bean graph, connection detection, metrics history — and the built dashboard, which the build places in `META-INF/resources/heimdall` so the host application serves it at `/heimdall/`. All classes live under `com.fischer.heimdall.*`.
+
+It ships no `application.properties`: every `heimdall.*` setting has a default, and nothing in the jar changes the host application's configuration.
 
 ### heimdall-docker
 
-An optional library module that adds Docker container monitoring. When added as a dependency to `heimdall-core`, its REST endpoints are automatically registered by Quarkus — no extra configuration needed. Users who don't need Docker monitoring simply don't include this module.
-
-```xml
-<!-- JVM monitoring only -->
-<dependency>heimdall-core</dependency>
-
-<!-- JVM + Docker monitoring -->
-<dependency>heimdall-core</dependency>
-<dependency>heimdall-docker</dependency>
-```
+An optional library that adds Docker container monitoring. Add it next to `heimdall-core` and its endpoints are registered automatically; leave it out if you don't need it.
 
 ### heimdall-ui
 
-The React + Vite frontend. During development it runs independently on port 5173 with a proxy to Quarkus on port 8080. For production it builds into `heimdall-core/src/main/resources/META-INF/resources` and gets served directly by Quarkus.
+The React + Vite dashboard. `./mvnw install` builds it (through `frontend-maven-plugin`, which downloads its own Node) and packages it into the `heimdall-core` jar. During development it can also run on its own at `http://localhost:5173/heimdall/`, proxying API calls to Quarkus on port 8080.
+
+### heimdall-demo
+
+A small Quarkus application (an in-memory orders API) that depends on Heimdall exactly like a real project would. It is what you run while developing Heimdall, and it holds the dev-only settings (CORS for the Vite dev server, Swagger UI).
 
 ---
 
@@ -175,40 +173,81 @@ The Heimdall dashboard provides:
 ### Requirements
 
 - Java 21+
-- Quarkus 3.x
-- Maven
+- A Quarkus 3.x application (built with Maven)
 
-### Running in development
+Node is **not** required — the Maven build downloads its own copy to build the dashboard.
+
+### Adding Heimdall to your project
+
+Heimdall isn't published to Maven Central yet, so install it into your local Maven repository first:
 
 ```bash
-# build all modules
+git clone git@github.com:FischerRobson/heimdall.git
+cd heimdall
 ./mvnw clean install -DskipTests
-
-# run the dashboard
-cd heimdall-core
-../mvnw quarkus:dev
 ```
 
-Visit `http://localhost:8080/heimdall` for the dashboard.
+Then add it to your application's `pom.xml`:
 
-### Running the frontend separately
+```xml
+<dependency>
+    <groupId>com.fischer</groupId>
+    <artifactId>heimdall-core</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+</dependency>
+
+<!-- optional: Docker container monitoring -->
+<dependency>
+    <groupId>com.fischer</groupId>
+    <artifactId>heimdall-docker</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+</dependency>
+```
+
+Start your application (`./mvnw quarkus:dev`) and open **`http://localhost:8080/heimdall/`** (with the trailing slash).
+
+To see your own methods as spans in the trace waterfall, annotate the classes with `@HeimdallMonitor`:
+
+```java
+import com.fischer.heimdall.tracing.HeimdallMonitor;
+
+@HeimdallMonitor
+@ApplicationScoped
+public class OrderService { ... }
+```
+
+Every HTTP request to your application is traced either way; the annotation adds the method-level spans (classes named `*Resource`, `*Controller`, `*Service`, `*Repository` or `*Dao`, or in the packages listed in `heimdall.tracing.packages`). `Heimdall.tag("orderId", id)` attaches business context to the current span.
+
+**What comes with the dependency:** Quarkus REST + Jackson, WebSockets Next, Scheduler, SmallRye Health (`/q/health`) and Micrometer with the Prometheus registry (`/q/metrics`). Agroal pool stats need `quarkus.datasource.metrics.enabled=true` in your application.
+
+> Heimdall exposes JVM internals, request headers/bodies and heap dumps with no authentication. Use it in development and staging only.
+
+### Developing Heimdall
 
 ```bash
-cd heimdall-ui
-npm install
-npm run dev
+./mvnw clean install -DskipTests     # builds all modules, including the dashboard
+cd heimdall-demo
+../mvnw quarkus:dev                  # demo app with Heimdall embedded
 ```
 
-Visit `http://localhost:5173` — the Vite dev server proxies API calls to Quarkus on port 8080.
+- Dashboard: `http://localhost:8080/heimdall/`
+- Demo endpoints to generate traces: `GET /orders`, `GET /orders/1`, `POST /orders`, `GET /orders/report` (slow), `GET /orders/fail` (error) — or use the Swagger UI at `http://localhost:8080/q/swagger-ui`
+
+For hot reload on the dashboard, `./start.sh` runs the demo app and the Vite dev server together; open `http://localhost:5173/heimdall/`. To skip the UI build in Maven and reuse an existing `heimdall-ui/dist`, pass `-Dskip.npm -Dskip.installnodenpm`.
 
 ### Optional configuration
 
 ```properties
-# How often metrics are collected (default: 3s)
+# how often metrics are collected
 heimdall.scheduler.interval=3s
-
-# How many snapshots to keep in history (default: 60)
+# metric snapshots / request traces kept in memory
 heimdall.history.limit=60
+heimdall.traces.limit=100
+# stack frames per thread, and thread dumps kept for comparison
+heimdall.threaddump.max-depth=100
+heimdall.threaddump.history-limit=10
+# restrict method tracing to these packages (comma-separated)
+heimdall.tracing.packages=com.example
 ```
 
 ---
@@ -257,7 +296,7 @@ public class OrderService {
 
 Bean nodes in the dependency graph will be color-coded by health — green if healthy, amber if slow, red if errors detected.
 
-### Phase 3 — WebSocket live push
+### Phase 3 — WebSocket live push *(done for the dashboard metrics; other pages still poll)*
 
 Replace the current polling model with a WebSocket connection. The server pushes metric snapshots as they are collected, eliminating unnecessary HTTP overhead and making the dashboard truly real-time with instant updates.
 
@@ -319,61 +358,29 @@ A Spring Boot auto-configuration adapter that wires Heimdall into Spring applica
 ## Architecture
 
 ```
-heimdall/
-├── heimdall-core/
-│   └── src/main/java/
-│       ├── services/
-│       │   └── MetricsService.java        — JVM metric collection
-│       ├── history/
-│       │   ├── MetricsHistory.java        — rolling snapshot buffer
-│       │   └── MetricsSnapshot.java       — timestamped metric wrapper
-│       ├── collectors/
-│       │   └── MetricsCollector.java      — scheduled collection every 3s
-│       ├── beans/
-│       │   ├── BeanService.java           — CDI graph builder
-│       │   ├── BeanGraph.java             — graph model
-│       │   ├── BeanNode.java              — node model
-│       │   └── BeanEdge.java              — edge model
-│       ├── connections/
-│       │   ├── ConnectionService.java     — connection pool detection
-│       │   ├── ConnectionInfo.java        — connection model
-│       │   └── detect/
-│       │       ├── HikariCPConnection.java
-│       │       ├── KafkaConnection.java
-│       │       ├── RedisConnection.java
-│       │       └── RabbitMQConnection.java
-│       ├── health/
-│       │   └── HeimdallHealthCheck.java   — SmallRye health check
-│       ├── exceptions/
-│       │   ├── ErrorResponse.java
-│       │   └── GlobalExceptionMapper.java
-│       └── resources/
-│           ├── MetricsResource.java       — metrics REST endpoints
-│           ├── BeanResource.java          — bean graph REST endpoints
-│           └── ConnectionResource.java    — connection REST endpoints
-│
-├── heimdall-docker/
-│   └── src/main/java/docker/
-│       ├── DockerService.java             — Docker socket connection
-│       ├── DockerResource.java            — Docker REST endpoints
-│       ├── DockerContainerInfo.java       — full container model
-│       ├── DockerContainerDTO.java        — trimmed response model
-│       ├── DockerStats.java               — container stats model
-│       └── DockerHostInfo.java            — Docker host model
-│
-└── heimdall-ui/
-    └── src/
-        ├── components/
-        │   ├── MemoryInfo.tsx             — heap memory card
-        │   ├── CpuInfo.tsx                — CPU card
-        │   ├── ThreadInfo.tsx             — threads card
-        │   ├── GarbageCollectorInfo.tsx   — GC card
-        │   ├── MetricsChart.tsx           — switchable history chart
-        │   ├── BeanGraph.tsx              — interactive dependency graph
-        │   ├── DockerDashboard.tsx        — Docker containers page
-        │   └── BifrostLoader.tsx          — animated loading screen
-        └── types/
-            └── metrics.ts                 — TypeScript type definitions
+heimdall-core/src/main/java/com/fischer/heimdall/
+├── metrics/       MetricsService (JVM MXBeans), MetricsResource, MetricsSocket (WebSocket),
+│                  HeapDumpService
+├── collectors/    MetricsCollector — scheduled snapshot every heimdall.scheduler.interval
+├── history/       MetricsHistory — rolling snapshot buffer
+├── tracing/       TraceFilter (per request), HeimdallInterceptor (@HeimdallMonitor spans),
+│                  TraceContext, TraceRegistry, Heimdall.tag() API
+├── beans/         BeansService — CDI bean dependency graph
+├── connections/   ConnectionsService + detect/ (Agroal, HikariCP, Kafka, Redis, RabbitMQ)
+├── threads/       ThreadDumpService, ThreadDumpHistory
+├── health/        SmallRye readiness check + /heimdall/api/health
+└── exceptions/, utils/
+
+heimdall-docker/src/main/java/com/fischer/heimdall/docker/
+└── DockerService (docker-java), DockerResource
+
+heimdall-ui/src/
+├── pages/         dashboard, docker, beans, trace, connections, threads (lazy-loaded)
+├── components/    metric cards, MetricsChart, CopyButton, BifrostLoader
+└── utils/         client-side export (CSV/JSON)
+
+heimdall-demo/src/main/java/com/example/demo/orders/
+└── OrderResource → OrderService → OrderRepository (in-memory, with artificial latency)
 ```
 
 ---

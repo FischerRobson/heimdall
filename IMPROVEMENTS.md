@@ -46,6 +46,13 @@ Estado do projeto após a revisão de código de outubro/2026 e plano das próxi
 
 Primeira suíte (`heimdall-core/src/test`) cobrindo API, interceptor, `TraceContext`, `MetricsService`, Agroal, histórico de thread dumps e heap dump. CI no GitHub Actions com `mvnw verify` + build do frontend.
 
+### Rumo ao MVP (usável como dependência)
+
+- `Move all packages under com.fischer.heimdall` — pacotes genéricos (`metrics`, `health`, `utils`…) podiam colidir com classes da aplicação hospedeira; o prefixo também passou a excluir os beans do Heimdall do grafo.
+- `Make heimdall-core a well-behaved library` — sem Camel/OpenAPI, sem `application.properties` no jar, `heimdall-docker` com `beans.xml` próprio e sem dependência do core nele.
+- `Package the dashboard inside the heimdall-core jar` — `frontend-maven-plugin` + `base: '/heimdall/'`; o jar agora serve a UI em `/heimdall/`.
+- `Add heimdall-demo` — app de exemplo que usa o Heimdall como dependência; vira o ambiente de desenvolvimento.
+
 ### Tracing (revisão anterior)
 
 Já feitos antes desta revisão: `tags` automáticas por parâmetro + `Heimdall.tag()`, captura de request/response body com redação de campos sensíveis, contexto de trace em Vert.x context locals.
@@ -94,9 +101,8 @@ O interceptor já existe e `BeanStats` está criado mas vazio.
 - Não expor `e.getMessage()` cru nas respostas de erro fora de dev.
 
 ### P6 — Fase 7: extensão Quarkus
-Pré-requisitos já resolvidos: prefixo das rotas e módulo Docker opcional.
+Pré-requisitos já resolvidos: prefixo das rotas, módulo Docker opcional, pacotes `com.fischer.heimdall`, UI empacotada no jar e core sem configuração própria.
 - Separar `runtime` / `deployment`; registrar beans e rotas pela extensão.
-- Empacotar a UI no JAR com `frontend-maven-plugin` (o build hoje é manual).
 - Publicar no Maven Central (`io.heimdall:heimdall-quarkus`).
 
 ### P7 — Longo prazo
@@ -111,5 +117,4 @@ Kubernetes (`heimdall-kubernetes`), Spring Boot starter, monitoramento multi-ins
 - `quarkus.redis.port` não é uma propriedade real do Quarkus (`RedisConnection`).
 - `MetricsService.getThreadInfo` chama `getThreadInfo(id)` uma vez por thread — usar a versão em lote.
 - `HealthResource` tem a versão `"1.0.0"` fixa no código.
-- Seção "Architecture" do README desatualizada (cita `services/`, `BeanGraph.tsx`, `DockerDashboard.tsx`, que não existem); a Fase 3 (WebSocket) do roadmap já está feita para o dashboard.
 - Mais testes: detectores Kafka/Redis/RabbitMQ e testes de frontend (Vitest) para utilitários como `diffDumps` e `toCsv`.

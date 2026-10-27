@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.fischer</groupId>
+        <artifactId>heimdall</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+
+    <!--
+        A small host application that depends on Heimdall exactly like a real user's
+        project would. Run it to develop Heimdall: `../mvnw quarkus:dev` from this folder.
+        Not meant to be published.
+    -->
+    <artifactId>heimdall-demo</artifactId>
+    <name>Heimdall Demo</name>
+
+    <properties>
+        <maven.deploy.skip>true</maven.deploy.skip>
+    </properties>
+
+    <dependencies>
+        <!-- Heimdall itself — this is all an application needs to add -->
+        <dependency>
+            <groupId>com.fischer</groupId>
+            <artifactId>heimdall-core</artifactId>
+        </dependency>
+        <!-- optional Docker monitoring -->
+        <dependency>
+            <groupId>com.fischer</groupId>
+            <artifactId>heimdall-docker</artifactId>
+        </dependency>
+
+        <!-- the demo's own stack -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-rest-jackson</artifactId>
+        </dependency>
+        <!-- Swagger UI at /q/swagger-ui in dev mode, handy for poking the demo endpoints -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-smallrye-openapi</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>${quarkus.platform.group-id}</groupId>
+                <artifactId>quarkus-maven-plugin</artifactId>
+                <version>${quarkus.platform.version}</version>
+                <extensions>true</extensions>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>build</goal>
+                            <goal>generate-code</goal>
+                            <goal>generate-code-tests</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>
