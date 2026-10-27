@@ -219,13 +219,23 @@ heimdall.history.limit=60
 |---|---|---|
 | GET | `/heimdall/api/metrics` | Current JVM snapshot |
 | GET | `/heimdall/api/metrics/history` | Last N metric snapshots |
+| POST | `/heimdall/api/metrics/gc` | Trigger a garbage collection |
+| GET | `/heimdall/api/metrics/heapdump?live=true` | Download a `.hprof` heap dump (pauses the JVM — dev/staging only) |
 | GET | `/heimdall/api/beans/graph` | CDI bean dependency graph |
 | GET | `/heimdall/api/connections` | Detected connection pools |
+| GET | `/heimdall/api/traces` | Recent request traces (Heimdall's own requests excluded) |
+| GET | `/heimdall/api/traces/errors` | Traces with status ≥ 400 |
+| GET | `/heimdall/api/traces/method/{method}` | Traces for one HTTP method |
 | GET | `/heimdall/api/docker/containers` | Running Docker containers |
-| GET | `/heimdall/api/docker/host` | Docker host info |
-| GET | `/heimdall/api/health` | Heimdall agent health *(coming soon)* |
+| GET | `/heimdall/api/docker/host` | Docker host info (503 if the daemon is unreachable) |
+| GET | `/heimdall/api/health` | Heimdall agent health |
 | GET | `/heimdall/api/alerts` | Active alerts *(coming soon)* |
-| GET | `/heimdall/api/threads/dump` | Thread dump on demand |
+| GET | `/heimdall/api/threads/dump` | Capture a thread dump (also stored in history) |
+| GET | `/heimdall/api/threads/dumps` | Stored thread dumps, newest first (summaries) |
+| GET | `/heimdall/api/threads/dumps/{id}` | One stored thread dump |
+| WS | `/heimdall/ws/metrics` | Live metric snapshots (history on connect, then one per interval) |
+
+Heimdall's routes carry the `/heimdall/api` prefix themselves — it does not set `quarkus.rest.path`, so the host application's endpoints keep their own paths.
 
 ---
 
