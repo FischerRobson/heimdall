@@ -59,6 +59,10 @@ Primeira suíte (`heimdall-core/src/test`) cobrindo API, interceptor, `TraceCont
 - `.github/workflows/release.yml`: uma tag `vX.Y.Z` publica no GitHub Packages e cria um GitHub Release com os jars. A `v0.1.0` foi publicada em 27/10/2026.
 - `TESTING.md`: guia de build, demo, uso em outro projeto e publicação.
 
+### Manutenção dos workflows
+
+`actions/checkout`, `actions/setup-java` e `actions/setup-node` atualizadas de `@v4` para `@v5` em `ci.yml` e `release.yml` (as v4 rodavam em Node 20, depreciado nos runners).
+
 ### Tracing (revisão anterior)
 
 Já feitos antes desta revisão: `tags` automáticas por parâmetro + `Heimdall.tag()`, captura de request/response body com redação de campos sensíveis, contexto de trace em Vert.x context locals.
@@ -68,18 +72,13 @@ Já feitos antes desta revisão: `tags` automáticas por parâmetro + `Heimdall.
 ## 2. Pendências de validação
 
 - **Nomes das métricas Agroal** (`agroal.active.count`, `agroal.available.count`…) foram escritos de memória — conferir em `/q/metrics` numa app com datasource e `quarkus.datasource.metrics.enabled=true`.
-- **Type check do frontend no CI está não bloqueante** (`continue-on-error`). Quando `npx tsc --noEmit` passar, remover a flag.
+- **`ubuntu-latest` vai migrar para Ubuntu 26:** acompanhar o primeiro build do CI e da release depois da troca.
 - **`npm run lint` não verifica TypeScript:** o script usa `--ext js,jsx`, então nenhum `.ts/.tsx` é analisado. Trocar para `--ext ts,tsx` (e corrigir o que aparecer) antes de colocar lint no CI.
 - **Heap dump com erro** (409/501) é baixado pelo navegador como `.hprof` contendo o JSON de erro — melhorar com uma checagem antes do download.
 
 ---
 
 ## 3. Próximas etapas (por prioridade)
-
-### P0 — Manutenção rápida dos workflows
-A release `v0.1.0` gerou avisos de depreciação no GitHub Actions. Ainda funciona, mas atualizar evita quebra futura:
-- `actions/checkout@v4` → `@v5` e `actions/setup-java@v4` → `@v5` em `ci.yml` e `release.yml`; `actions/setup-node@v4` → `@v5` em `ci.yml`. As v4 rodam em Node 20, que está depreciado nos runners.
-- `ubuntu-latest` vai migrar para Ubuntu 26: acompanhar o primeiro build depois da troca.
 
 ### P1 — Fase 2: estatísticas por método (`@HeimdallMonitor`)
 O interceptor já existe e `BeanStats` está criado mas vazio.
