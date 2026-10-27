@@ -2,7 +2,7 @@
 
 Estado do projeto após a revisão de código de outubro/2026 e plano das próximas etapas. Os itens concluídos ficam registrados com o commit correspondente; o restante está em ordem de prioridade.
 
-> **Validação pendente:** as mudanças desta revisão foram escritas sem um ambiente com Java/Node, então nada foi compilado nem executado ainda. O primeiro `./mvnw verify` + `npm run build` (local ou no CI) é o que valida tudo — inclusive as correções, que agora têm testes.
+> Build, testes (25) e demo validados rodando em 26/10/2026 — ver `TESTING.md`.
 
 ---
 
@@ -53,6 +53,12 @@ Primeira suíte (`heimdall-core/src/test`) cobrindo API, interceptor, `TraceCont
 - `Package the dashboard inside the heimdall-core jar` — `frontend-maven-plugin` + `base: '/heimdall/'`; o jar agora serve a UI em `/heimdall/`.
 - `Add heimdall-demo` — app de exemplo que usa o Heimdall como dependência; vira o ambiente de desenvolvimento.
 
+### Primeira release — `v0.1.0`
+
+- Build, testes e demo validados de ponta a ponta. Rodando de verdade, apareceram e foram corrigidos dois bugs: requests com exceção não tratada (500) não geravam trace, e `/heimdall` sem barra dava 404.
+- `.github/workflows/release.yml`: uma tag `vX.Y.Z` publica no GitHub Packages e cria um GitHub Release com os jars. A `v0.1.0` foi publicada em 27/10/2026.
+- `TESTING.md`: guia de build, demo, uso em outro projeto e publicação.
+
 ### Tracing (revisão anterior)
 
 Já feitos antes desta revisão: `tags` automáticas por parâmetro + `Heimdall.tag()`, captura de request/response body com redação de campos sensíveis, contexto de trace em Vert.x context locals.
@@ -69,6 +75,11 @@ Já feitos antes desta revisão: `tags` automáticas por parâmetro + `Heimdall.
 ---
 
 ## 3. Próximas etapas (por prioridade)
+
+### P0 — Manutenção rápida dos workflows
+A release `v0.1.0` gerou avisos de depreciação no GitHub Actions. Ainda funciona, mas atualizar evita quebra futura:
+- `actions/checkout@v4` → `@v5` e `actions/setup-java@v4` → `@v5` em `ci.yml` e `release.yml`; `actions/setup-node@v4` → `@v5` em `ci.yml`. As v4 rodam em Node 20, que está depreciado nos runners.
+- `ubuntu-latest` vai migrar para Ubuntu 26: acompanhar o primeiro build depois da troca.
 
 ### P1 — Fase 2: estatísticas por método (`@HeimdallMonitor`)
 O interceptor já existe e `BeanStats` está criado mas vazio.
