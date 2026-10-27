@@ -13,7 +13,7 @@ import org.jboss.resteasy.reactive.server.ServerExceptionMapper;
 
 import java.util.List;
 
-@Path("/traces")
+@Path("/heimdall/api/traces")
 @RequiredArgsConstructor
 public class TraceResource {
 

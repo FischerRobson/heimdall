@@ -13,7 +13,12 @@ import lombok.RequiredArgsConstructor;
 import org.jboss.resteasy.reactive.server.ServerExceptionMapper;
 import tracing.HeimdallMonitor;
 
-@Path("/metrics")
+import java.io.IOException;
+import java.nio.file.Files;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+
+@Path("/heimdall/api/metrics")
 @RequiredArgsConstructor
 @HeimdallMonitor
 public class MetricsResource {

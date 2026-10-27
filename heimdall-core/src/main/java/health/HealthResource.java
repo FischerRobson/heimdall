@@ -16,7 +16,7 @@ import java.util.Map;
 
 @RequiredArgsConstructor
 @HeimdallMonitor
-@Path("/health")
+@Path("/heimdall/api/health")
 public class HealthResource {
 
     private final MetricsHistory metricsHistory;

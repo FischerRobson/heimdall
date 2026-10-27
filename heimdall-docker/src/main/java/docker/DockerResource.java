@@ -12,7 +12,7 @@ import org.jboss.resteasy.reactive.server.ServerExceptionMapper;
 import java.time.Instant;
 import java.util.Map;
 
-@Path("/docker")
+@Path("/heimdall/api/docker")
 @ApplicationScoped
 @RequiredArgsConstructor
 public class DockerResource {

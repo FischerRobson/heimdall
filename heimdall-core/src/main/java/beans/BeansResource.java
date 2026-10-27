@@ -11,7 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.jboss.resteasy.reactive.server.ServerExceptionMapper;
 import tracing.HeimdallMonitor;
 
-@Path("/beans")
+@Path("/heimdall/api/beans")
 @RequiredArgsConstructor
 @HeimdallMonitor
 public class BeansResource {

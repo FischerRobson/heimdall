@@ -51,8 +51,9 @@ public class TraceFilter {
     private final ObjectMapper objectMapper;
 
     // Heimdall's own REST resources, by class name (strings so heimdall-docker stays an
-    // optional module). Matched by resource class rather than by path because
-    // UriInfo.getPath() is relative to quarkus.rest.path — it never starts with "/heimdall".
+    // optional module). Matched by resource class rather than by path so it keeps working
+    // whatever prefix the routes end up under — UriInfo.getPath() is relative to the REST
+    // root path, and a host app could have its own routes starting with "/heimdall".
     private static final Set<String> HEIMDALL_RESOURCES = Set.of(
             "metrics.MetricsResource",
             "beans.BeansResource",

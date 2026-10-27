@@ -11,7 +11,9 @@ import lombok.RequiredArgsConstructor;
 import org.jboss.resteasy.reactive.server.ServerExceptionMapper;
 import tracing.HeimdallMonitor;
 
-@Path("/threads")
+import java.util.List;
+
+@Path("/heimdall/api/threads")
 @RequiredArgsConstructor
 @HeimdallMonitor
 public class ThreadDumpResource {
