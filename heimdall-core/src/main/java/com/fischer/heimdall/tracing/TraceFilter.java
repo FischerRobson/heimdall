@@ -1,6 +1,9 @@
 package com.fischer.heimdall.tracing;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.quarkus.vertx.http.runtime.CurrentVertxRequest;
+import io.vertx.core.http.HttpServerResponse;
+import io.vertx.ext.web.RoutingContext;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.container.ContainerResponseContext;
@@ -49,6 +52,8 @@ public class TraceFilter {
 
     private final ObjectMapper objectMapper;
 
+    private final CurrentVertxRequest currentVertxRequest;
+
     // Heimdall's own REST resources (core and optional modules like heimdall-docker) all
     // live under this package. Matched by resource class rather than by path so it keeps
     // working whatever prefix the routes end up under — UriInfo.getPath() is relative to
@@ -78,8 +83,21 @@ public class TraceFilter {
                 .build();
 
         traceContext.startTrace(trace);
+
+        // Register the trace when the HTTP response actually ends, not in the JAX-RS
+        // response filter: an unmapped exception is answered by Quarkus' error handler,
+        // which never runs response filters — those traces (the 500s, the ones that
+        // matter most) used to be silently dropped.
+        RoutingContext routingContext = currentVertxRequest.getCurrent();
+        if (routingContext != null) {
+            routingContext.addEndHandler(ignored -> complete(trace, routingContext));
+        }
     }
 
+    /**
+     * Enriches the trace with what only JAX-RS knows (the response entity). Not called
+     * when the request fails with an unmapped exception — {@link #complete} covers that.
+     */
     @ServerResponseFilter
     public void responseFilter(ContainerRequestContext reqCtx, ContainerResponseContext resCtx) {
         if (!traceContext.hasActiveTrace()) return;
@@ -87,11 +105,23 @@ public class TraceFilter {
         HeimdallTrace trace = traceContext.endTrace();
         if (trace == null) return;
 
-        long duration = System.currentTimeMillis() - trace.getStartTime();
-        trace.setDuration(duration);
         trace.setStatus(resCtx.getStatus());
         trace.setResponseHeaders(extractResponseHeaders(resCtx));
         trace.setResponseBody(extractResponseBody(resCtx));
+    }
+
+    private void complete(HeimdallTrace trace, RoutingContext routingContext) {
+        trace.setDuration(System.currentTimeMillis() - trace.getStartTime());
+
+        // the response filter didn't run (or the error handler rewrote the response):
+        // take status and headers from what was really sent
+        HttpServerResponse response = routingContext.response();
+        trace.setStatus(response.getStatusCode());
+        if (trace.getResponseHeaders() == null) {
+            Map<String, String> headers = new HashMap<>();
+            response.headers().forEach(h -> headers.merge(h.getKey().toLowerCase(), h.getValue(), (a, b) -> a + ", " + b));
+            trace.setResponseHeaders(headers);
+        }
 
         traceRegistry.add(trace);
     }

@@ -25,4 +25,11 @@ public class SampleResource {
     public String hello(@QueryParam("name") String name) {
         return sampleService.greet(name, "secret");
     }
+
+    /** Unhandled exception: Quarkus turns it into a 500 outside JAX-RS. */
+    @GET
+    @Path("/boom")
+    public void boom() {
+        sampleService.fail();
+    }
 }

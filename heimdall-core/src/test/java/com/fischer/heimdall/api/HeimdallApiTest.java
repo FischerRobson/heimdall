@@ -59,6 +59,21 @@ class HeimdallApiTest {
     }
 
     @Test
+    void unhandledExceptionsAreStillTraced() {
+        // regression: an unmapped exception is answered by Quarkus' error handler, which
+        // skips JAX-RS response filters — the trace used to be silently dropped
+        given().get("/sample/boom").then().statusCode(500);
+
+        given().when().get("/heimdall/api/traces")
+                .then()
+                .statusCode(200)
+                .body("size()", is(1))
+                .body("[0].path", equalTo("/sample/boom"))
+                .body("[0].status", is(500))
+                .body("[0].spans.find { it.methodName == 'fail' }.error", equalTo("boom"));
+    }
+
+    @Test
     void tracesCanBeFilteredByMethodPathParam() {
         given().get("/sample/hello").then().statusCode(200);
 
@@ -96,6 +111,15 @@ class HeimdallApiTest {
 
         given().get("/heimdall/api/threads/dumps/does-not-exist")
                 .then().statusCode(404);
+    }
+
+    @Test
+    void bareDashboardPathRedirectsToTrailingSlash() {
+        given().redirects().follow(false)
+                .when().get("/heimdall")
+                .then()
+                .statusCode(302)
+                .header("Location", endsWith("/heimdall/"));
     }
 
     @Test
