@@ -96,7 +96,34 @@ curl -s localhost:8080/q/health                                 # inclui o check
 
 ## 3. Adicionar a outro projeto Quarkus
 
-Depois do `./mvnw install` do passo 1, no `pom.xml` do seu projeto:
+Há duas formas de obter o Heimdall:
+
+- **Build local:** rode o `./mvnw install` do passo 1 e use a versão `1.0.0-SNAPSHOT`, sem nenhuma configuração extra.
+- **Versão publicada no GitHub Packages:** depois que existir uma release (veja o passo 6), use a versão da tag, por exemplo `0.1.0`. O GitHub Packages exige autenticação mesmo para pacotes públicos. Faça uma vez:
+  1. Crie um token **classic** em GitHub → Settings → Developer settings → Personal access tokens, com o escopo `read:packages`.
+  2. Adicione o token ao `~/.m2/settings.xml`:
+     ```xml
+     <settings>
+       <servers>
+         <server>
+           <id>github-heimdall</id>
+           <username>SEU_USUARIO_GITHUB</username>
+           <password>SEU_TOKEN</password>
+         </server>
+       </servers>
+     </settings>
+     ```
+  3. No `pom.xml` do projeto, adicione o repositório (o `id` precisa ser igual ao do `settings.xml`):
+     ```xml
+     <repositories>
+       <repository>
+         <id>github-heimdall</id>
+         <url>https://maven.pkg.github.com/FischerRobson/heimdall</url>
+       </repository>
+     </repositories>
+     ```
+
+Depois, no `pom.xml` do seu projeto (troque a versão pela da release, se for o caso):
 
 ```xml
 <dependency>
@@ -165,6 +192,28 @@ cd heimdall-ui && npm run build                 # build do frontend
 ```
 
 O CI (`.github/workflows/ci.yml`) roda os mesmos passos em push para `master` e em PRs.
+
+---
+
+## 6. Publicar uma versão
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+A tag dispara o `.github/workflows/release.yml`, que:
+
+1. usa a versão da tag (`0.1.0`); a `master` continua em `1.0.0-SNAPSHOT`;
+2. builda a UI, compila e roda os testes (se falharem, nada é publicado);
+3. publica o pom pai, `heimdall-core` e `heimdall-docker` no **GitHub Packages** (`heimdall-demo` nunca é publicado);
+4. cria um **GitHub Release** com os jars e os jars de sources anexados, e notas geradas a partir dos commits.
+
+Acompanhe na aba *Actions* do repositório. Os pacotes aparecem em *Packages*, na página do repositório.
+
+Observações:
+- O GitHub Packages não aceita republicar a mesma versão. Para corrigir uma release, crie uma tag nova (`v0.1.1`).
+- O nome da tag precisa seguir o formato `vX.Y.Z`.
 
 ---
 

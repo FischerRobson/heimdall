@@ -181,7 +181,7 @@ Node is **not** required — the Maven build downloads its own copy to build the
 
 > Step-by-step guide with a test checklist (in Portuguese): [TESTING.md](TESTING.md)
 
-Heimdall isn't published to Maven Central yet, so install it into your local Maven repository first:
+Releases are published to GitHub Packages (see [TESTING.md](TESTING.md) for the one-time `settings.xml` token setup) and attached to [GitHub Releases](https://github.com/FischerRobson/heimdall/releases). To use the latest code instead, install it into your local Maven repository:
 
 ```bash
 git clone git@github.com:FischerRobson/heimdall.git

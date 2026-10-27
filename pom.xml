@@ -65,6 +65,10 @@
             <plugin>
                 <artifactId>maven-source-plugin</artifactId>
                 <version>3.3.1</version>
+                <configuration>
+                    <!-- code only — heimdall-core's resources include the whole built dashboard -->
+                    <excludeResources>true</excludeResources>
+                </configuration>
                 <executions>
                     <execution>
                         <id>attach-sources</id>
