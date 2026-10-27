@@ -14,22 +14,49 @@ export function App() {
   const [beanGraph, setBeanGraph] = useState<{ nodes: any[], edges: any[] } | null>(null)
   const [page, setPage] = useState<'dashboard' | 'docker' | 'beans' | 'trace' | 'conns' | 'threads'>('dashboard')
   const [hoveredPage, setHoveredPage] = useState<string | null>(null)
+  const [connected, setConnected] = useState(true)
 
   useEffect(() => {
-    const fetch_metrics = () => {
-      fetch('/heimdall/api/metrics')
-        .then(res => res.json())
-        .then(data => setMetrics(data))
-        .catch(err => console.error(err))
+    let stopped = false
+    let beansLoaded = false
 
-      fetch('/heimdall/api/beans/graph')
-        .then(res => res.json())
-        .then(data => setBeanGraph(data))
-        .catch(err => console.error(err))
+    // polled so the header's uptime stays current and "live" reflects whether the
+    // backend is actually answering (it also retries if the first load failed)
+    const tick = () => {
+      fetch('/heimdall/api/metrics')
+        .then(res => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`)
+          return res.json()
+        })
+        .then(data => {
+          if (stopped) return
+          setMetrics(data)
+          setConnected(true)
+        })
+        .catch(() => { if (!stopped) setConnected(false) })
+
+      // the bean graph doesn't change at runtime — load it once
+      if (!beansLoaded) {
+        fetch('/heimdall/api/beans/graph')
+          .then(res => {
+            if (!res.ok) throw new Error(`HTTP ${res.status}`)
+            return res.json()
+          })
+          .then(data => {
+            if (stopped) return
+            beansLoaded = true
+            setBeanGraph(data)
+          })
+          .catch(err => console.error(err))
+      }
     }
-    fetch_metrics()
-    // const interval = setInterval(fetch_metrics, 3000)
-    // return () => clearInterval(interval)
+
+    tick()
+    const interval = setInterval(tick, 3000)
+    return () => {
+      stopped = true
+      clearInterval(interval)
+    }
   }, [])
 
   if (!metrics) return <BifrostLoader />
@@ -38,7 +65,10 @@ export function App() {
     <div className="min-h-screen bg-gray-950 p-6">
       <div className="max-w-5xl mx-auto">
         <h1 className="text-white font-mono text-2xl tracking-widest mb-8 flex items-center gap-3">
-          HEIMDALL <span className="text-green-400 text-sm">● live</span>
+          HEIMDALL{' '}
+          {connected
+            ? <span className="text-green-400 text-sm">● live</span>
+            : <span className="text-red-400 text-sm">● offline</span>}
           <JvmInfo data={metrics.jvmInfo} />
         </h1>
         <div className="flex gap-2 mb-2">

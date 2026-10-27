@@ -20,6 +20,7 @@ const TYPE_LABELS: Record<string, string> = {
 }
 
 const TECH_ICONS: Record<string, { icon: string; bg: string }> = {
+  'Agroal':          { icon: '🗄️', bg: 'rgba(59,130,246,0.1)'  },
   'HikariCP':        { icon: '🗄️', bg: 'rgba(59,130,246,0.1)'  },
   'Kafka Consumer':  { icon: '⚡', bg: 'rgba(245,158,11,0.1)'  },
   'Kafka Producer':  { icon: '📤', bg: 'rgba(245,158,11,0.1)'  },
@@ -61,6 +62,7 @@ function getQuickStats(conn: ConnectionInfo): { label: string; value: string; wa
   const s = conn.stats
 
   switch (conn.technology) {
+    case 'Agroal':
     case 'HikariCP':
       return [
         { label: 'Active',   value: formatStatValue(s.activeConnections) },
@@ -107,7 +109,7 @@ function getQuickStats(conn: ConnectionInfo): { label: string; value: string; wa
 function getUsageBar(conn: ConnectionInfo): { label: string; left: string; value: number; color: string } | null {
   const s = conn.stats
 
-  if (conn.technology === 'HikariCP') {
+  if (conn.technology === 'HikariCP' || conn.technology === 'Agroal') {
     return {
       label: 'Pool usage',
       left:  `${formatStatValue(s.activeConnections)} / ${formatStatValue(s.maxConnections)} active`,

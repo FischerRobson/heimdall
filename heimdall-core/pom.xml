@@ -68,6 +68,9 @@
             <groupId>com.fischer</groupId>
             <artifactId>heimdall-docker</artifactId>
             <version>${project.version}</version>
+            <!-- on the classpath when running heimdall-core itself (dev mode), but not
+                 pulled in transitively — apps opt in by adding heimdall-docker explicitly -->
+            <optional>true</optional>
         </dependency>
     </dependencies>
 

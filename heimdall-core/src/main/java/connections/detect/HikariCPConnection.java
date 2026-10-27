@@ -62,7 +62,7 @@ public class HikariCPConnection {
                     .type("database")
                     .technology("HikariCP")
                     .status("DOWN")
-                    .stats(Map.of("error", e.getMessage()))
+                    .stats(Map.of("error", String.valueOf(e.getMessage())))
                     .checkedAt(Instant.now())
                     .build());
         }

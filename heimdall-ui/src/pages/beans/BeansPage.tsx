@@ -12,7 +12,8 @@ import {
 import '@xyflow/react/dist/style.css'
 
 interface BeanNode {
-  id: string
+  id: string        // fully qualified class name (unique)
+  name: string      // simple class name, for display
   fullClass: string
   scope: string
   types: string[]
@@ -46,6 +47,11 @@ function getColor(scope: string) {
   return SCOPE_COLORS[scope] ?? DEFAULT_COLOR
 }
 
+// edge endpoints are fully qualified names — search should only match the class name
+function simpleName(fqcn: string) {
+  return fqcn.substring(fqcn.lastIndexOf('.') + 1)
+}
+
 function getConnected(id: string, edges: BeanEdge[]) {
   const children = edges.filter(e => e.from === id).map(e => e.to)
   const parents = edges.filter(e => e.to === id).map(e => e.from)
@@ -54,6 +60,7 @@ function getConnected(id: string, edges: BeanEdge[]) {
 
 interface DetailPanel {
   id: string
+  name: string
   scope: string
   pkg: string
   deps: number
@@ -111,7 +118,7 @@ export function BeansPage({ data }: Props) {
       }
 
       if (searchQuery) {
-        const matches = bean.id.toLowerCase().includes(searchQuery.toLowerCase())
+        const matches = bean.name.toLowerCase().includes(searchQuery.toLowerCase())
         opacity = matches ? 1 : 0.1
         if (matches) borderColor = '#f59e0b'
       }
@@ -143,7 +150,7 @@ export function BeansPage({ data }: Props) {
                 fontFamily: 'monospace',
                 marginBottom: '3px'
               }}>
-                {bean.id}
+                {bean.name}
               </div>
               <div style={{
                 fontSize: '9px',
@@ -204,8 +211,8 @@ export function BeansPage({ data }: Props) {
 
         if (searchQuery) {
           const matches =
-            e.from.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            e.to.toLowerCase().includes(searchQuery.toLowerCase())
+            simpleName(e.from).toLowerCase().includes(searchQuery.toLowerCase()) ||
+            simpleName(e.to).toLowerCase().includes(searchQuery.toLowerCase())
           opacity = matches ? 1 : 0.05
         }
 
@@ -242,6 +249,7 @@ export function BeansPage({ data }: Props) {
       if (bean) {
         setDetail({
           id: bean.id,
+          name: bean.name,
           scope: bean.scope,
           pkg: bean.fullClass.split('.').slice(0, -1).join('.'),
           deps: conn.children.length,
@@ -348,7 +356,7 @@ export function BeansPage({ data }: Props) {
               className="font-mono text-sm font-medium mb-3"
               style={{ color: getColor(detail.scope).text }}
             >
-              {detail.id}
+              {detail.name}
             </div>
             <div className="flex flex-col gap-1.5">
               {[

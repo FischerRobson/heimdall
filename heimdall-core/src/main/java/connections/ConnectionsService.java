@@ -1,5 +1,6 @@
 package connections;
 
+import connections.detect.AgroalConnection;
 import connections.detect.HikariCPConnection;
 import connections.detect.KafkaConnection;
 import connections.detect.RabbitMQConnection;
@@ -16,6 +17,7 @@ import java.util.List;
 @HeimdallMonitor
 public class ConnectionsService {
 
+    private final AgroalConnection agroalConnection;
     private final HikariCPConnection hikariCPConnection;
     private final KafkaConnection kafkaConnection;
     private final RedisConnection redisConnection;
@@ -24,6 +26,7 @@ public class ConnectionsService {
     public List<ConnectionInfo> detectConnections() {
         List<ConnectionInfo> connectionInfoList = new ArrayList<>();
 
+        agroalConnection.detect(connectionInfoList);
         hikariCPConnection.detect(connectionInfoList);
         kafkaConnection.detect(connectionInfoList);
         redisConnection.detect(connectionInfoList);

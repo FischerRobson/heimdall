@@ -14,12 +14,20 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
 
 @ApplicationScoped
 @HeimdallMonitor
 public class RabbitMQConnection {
+
+    // one shared client (each HttpClient owns its own thread pool), with timeouts so an
+    // unreachable management API can't hang /connections for minutes on every poll
+    private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(2);
+    private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(2))
+            .build();
 
     @Inject
     BeanManager beanManager;
@@ -108,8 +116,9 @@ public class RabbitMQConnection {
                     stats.put("port", rabbitPort);
                 }
 
-                double failed = (double) stats.getOrDefault("failedToPublish", 0.0);
-                String status = failed > 0 ? "DEGRADED" : "UP";
+                // use the raw double — the map stores it as Long, so casting the map
+                // value to double threw ClassCastException and silently dropped detection
+                String status = failedToPublish > 0 ? "DEGRADED" : "UP";
 
                 result.add(ConnectionInfo.builder()
                         .name("RabbitMQ")
@@ -140,14 +149,14 @@ public class RabbitMQConnection {
                     (rabbitUsername + ":" + rabbitPassword).getBytes()
             );
 
-            HttpClient client = HttpClient.newHttpClient();
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .header("Authorization", "Basic " + credentials)
+                    .timeout(REQUEST_TIMEOUT)
                     .GET()
                     .build();
 
-            HttpResponse<String> response = client.send(request,
+            HttpResponse<String> response = HTTP_CLIENT.send(request,
                     HttpResponse.BodyHandlers.ofString());
 
             if (response.statusCode() == 200) {

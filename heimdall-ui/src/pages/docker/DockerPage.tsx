@@ -184,19 +184,31 @@ export function DockerPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // the backend can take a few seconds to collect stats — skip a tick instead of
+    // stacking requests while the previous one is still running
+    let inFlight = false
+    let stopped = false
+
     const fetchContainers = () => {
+      if (inFlight) return
+      inFlight = true
       fetch('/heimdall/api/docker/containers')
         .then(res => res.json())
         .then(data => {
-          setContainers(data)
+          if (stopped) return
+          setContainers(Array.isArray(data) ? data : [])
           setLoading(false)
         })
-        .catch(() => setLoading(false))
+        .catch(() => { if (!stopped) setLoading(false) })
+        .finally(() => { inFlight = false })
     }
 
     fetchContainers()
-    // const interval = setInterval(fetchContainers, 5000)
-    // return () => clearInterval(interval)
+    const interval = setInterval(fetchContainers, 5000)
+    return () => {
+      stopped = true
+      clearInterval(interval)
+    }
   }, [])
 
   const clusters = [...new Set(containers.map(c => c.cluster ?? 'unknown'))]

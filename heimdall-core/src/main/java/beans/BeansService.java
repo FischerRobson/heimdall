@@ -35,6 +35,7 @@ public class BeansService {
 
             if (!nodeMap.containsKey(fullClass)) {
                 nodeMap.put(fullClass, new BeanNode(
+                        fullClass,
                         bean.getBeanClass().getSimpleName(),
                         fullClass,
                         bean.getScope().getSimpleName(),
@@ -51,9 +52,10 @@ public class BeansService {
                         .filter(b -> b.getTypes().stream()
                                 .anyMatch(t -> t.getTypeName().equals(injectedType.getName())))
                         .findFirst()
+                        // edges reference node ids (fully qualified names)
                         .ifPresent(target -> edges.add(new BeanEdge(
-                                bean.getBeanClass().getSimpleName(),
-                                target.getBeanClass().getSimpleName()
+                                bean.getBeanClass().getName(),
+                                target.getBeanClass().getName()
                         )));
             }
         }

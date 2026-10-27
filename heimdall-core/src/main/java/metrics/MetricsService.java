@@ -22,10 +22,15 @@ public class MetricsService {
         memoryInfo.setInitialMemory(ByteConverter.toMegabytes(memoryUsage.getInit()));
         memoryInfo.setInUsage(ByteConverter.toMegabytes(memoryUsage.getUsed()));
         memoryInfo.setCommitted(ByteConverter.toMegabytes(memoryUsage.getCommitted()));
-        memoryInfo.setMaxAllowed(ByteConverter.toMegabytes(memoryUsage.getMax()));
+        // getMax() is -1 when no max heap is defined — fall back to committed so the
+        // percentage stays meaningful instead of going negative
+        long max = memoryUsage.getMax() > 0 ? memoryUsage.getMax() : memoryUsage.getCommitted();
+        memoryInfo.setMaxAllowed(ByteConverter.toMegabytes(max));
 
-        double percentage = (double) memoryUsage.getUsed() / memoryUsage.getMax() * 100;
-        memoryInfo.setPercentage(Double.parseDouble(String.format("%.1f", percentage)));
+        // rounded arithmetically — String.format is locale-dependent ("45,3" in pt_BR)
+        // and made Double.parseDouble throw
+        double percentage = max > 0 ? (double) memoryUsage.getUsed() / max * 100 : 0.0;
+        memoryInfo.setPercentage(Math.round(percentage * 10.0) / 10.0);
 
         return memoryInfo;
     }

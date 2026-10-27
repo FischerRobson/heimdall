@@ -127,6 +127,7 @@ Auto-detects and monitors connection pools via JMX and CDI:
 
 | Technology | Detection Method | Metrics |
 |---|---|---|
+| Agroal (Quarkus datasources) | Micrometer gauges (`quarkus.datasource.metrics.enabled=true`) | active, idle, pending, max used, leaks, usage % |
 | HikariCP | JMX MBeans | active, idle, total, pending, usage % |
 | Kafka Consumer | JMX MBeans | records lag, fetch rate, commit rate, partitions |
 | Kafka Producer | JMX MBeans | send rate, error rate, latency avg/max |

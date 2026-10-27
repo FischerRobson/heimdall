@@ -11,18 +11,38 @@ import jakarta.enterprise.context.ApplicationScoped;
 
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 @ApplicationScoped
 public class DockerService {
 
-    private DockerClient dockerClient;
-    private boolean available = false;
+    // how long to wait before pinging the daemon again after it was found unavailable
+    private static final long RETRY_INTERVAL_MS = 30_000;
+    private static final long STATS_TIMEOUT_SECONDS = 3;
+
+    private volatile DockerClient dockerClient;
+    private volatile boolean available = false;
+    private volatile long lastAttemptAt = 0;
 
     @PostConstruct
-    void connect() {
+    void init() {
+        connect();
+    }
+
+    // synchronized so concurrent requests don't build several clients at once
+    private synchronized void connect() {
+        lastAttemptAt = System.currentTimeMillis();
         try {
+            if (dockerClient != null) {
+                dockerClient.pingCmd().exec();
+                available = true;
+                return;
+            }
+
             DockerClientConfig config = DefaultDockerClientConfig
                     .createDefaultConfigBuilder()
                     .build();
@@ -30,7 +50,8 @@ public class DockerService {
             ApacheDockerHttpClient httpClient = new ApacheDockerHttpClient.Builder()
                     .dockerHost(config.getDockerHost())
                     .sslConfig(config.getSSLConfig())
-                    .maxConnections(10)
+                    // stats are fetched in parallel, one connection per container
+                    .maxConnections(25)
                     .build();
 
             dockerClient = DockerClientImpl.getInstance(config, httpClient);
@@ -52,11 +73,21 @@ public class DockerService {
     }
 
     public boolean isAvailable() {
+        return ensureAvailable();
+    }
+
+    // if Docker wasn't running when the app started (or went away later), try again —
+    // throttled so a missing daemon doesn't cost a ping on every request
+    private boolean ensureAvailable() {
+        if (available) return true;
+        if (System.currentTimeMillis() - lastAttemptAt >= RETRY_INTERVAL_MS) {
+            connect();
+        }
         return available;
     }
 
     public DockerHostInfo getHostInfo() {
-        if (!available) return null;
+        if (!ensureAvailable()) return null;
 
         try {
             Info info = dockerClient.infoCmd().exec();
@@ -73,27 +104,43 @@ public class DockerService {
                     .build();
 
         } catch (Exception e) {
+            available = false;
             return null;
         }
     }
 
     public List<DockerContainerDTO> getRunningContainers() {
-        if (!available) return List.of();
+        if (!ensureAvailable()) return List.of();
 
+        List<Container> containers;
         try {
-            return dockerClient
+            containers = dockerClient
                     .listContainersCmd()
                     .withStatusFilter(List.of("running"))
-                    .exec()
-                    .stream()
+                    .exec();
+        } catch (Exception e) {
+            // daemon went away — mark it so the next request retries the connection
+            available = false;
+            return List.of();
+        }
+
+        // fetch stats for all containers in parallel: each call takes ~1-2s on the
+        // Docker side, so doing them one by one made the page take N × seconds
+        Map<String, Future<DockerStats>> statsById = new HashMap<>();
+        try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            for (Container container : containers) {
+                statsById.put(container.getId(), executor.submit(() -> fetchStats(container.getId())));
+            }
+
+            return containers.stream()
                     .map(container -> {
-                        DockerStats stats = fetchStats(container.getId());
+                        DockerStats stats = awaitStats(statsById.get(container.getId()));
 
                         String name = container.getNames() != null && container.getNames().length > 0
                                 ? container.getNames()[0].replaceFirst("/", "")
                                 : "unknown";
 
-                        String[] ports = Arrays.stream(container.getPorts())
+                        String[] ports = Arrays.stream(Optional.ofNullable(container.getPorts()).orElse(new ContainerPort[0]))
                                 .map(p -> p.getPublicPort() != null
                                         ? p.getPublicPort() + "->" + p.getPrivatePort() + "/" + p.getType()
                                         : p.getPrivatePort() + "/" + p.getType())
@@ -119,31 +166,51 @@ public class DockerService {
         }
     }
 
+    private DockerStats awaitStats(Future<DockerStats> future) {
+        if (future == null) return emptyStats();
+        try {
+            // fetchStats has its own timeout; this is just a safety net
+            return future.get(STATS_TIMEOUT_SECONDS + 1, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return emptyStats();
+        } catch (Exception e) {
+            future.cancel(true);
+            return emptyStats();
+        }
+    }
+
     private DockerStats fetchStats(String containerId) {
         AtomicReference<Statistics> statsRef = new AtomicReference<>();
         CountDownLatch latch = new CountDownLatch(1);
 
-        try {
-            StatsCmd statsCmd = dockerClient.statsCmd(containerId).withNoStream(true);
+        InvocationBuilder.AsyncResultCallback<Statistics> callback = new InvocationBuilder.AsyncResultCallback<>() {
+            @Override
+            public void onNext(Statistics stats) {
+                statsRef.set(stats);
+                latch.countDown();
+            }
 
-            statsCmd.exec(new InvocationBuilder.AsyncResultCallback<Statistics>() {
-                @Override
-                public void onNext(Statistics stats) {
-                    statsRef.set(stats);
-                    latch.countDown();
-                }
+            @Override
+            public void onError(Throwable throwable) {
+                latch.countDown();
+            }
+        };
 
-                @Override
-                public void onError(Throwable throwable) {
-                    latch.countDown();;
-                }
-            });
-
-            latch.await(3, TimeUnit.SECONDS);
-            statsCmd.close();
-
+        try (StatsCmd statsCmd = dockerClient.statsCmd(containerId).withNoStream(true)) {
+            statsCmd.exec(callback);
+            latch.await(STATS_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return emptyStats();
         } catch (Exception e) {
             return emptyStats();
+        } finally {
+            // close the callback too — closing only the command left the HTTP
+            // stream open whenever the latch timed out
+            try {
+                callback.close();
+            } catch (Exception ignored) {}
         }
 
         Statistics stats = statsRef.get();

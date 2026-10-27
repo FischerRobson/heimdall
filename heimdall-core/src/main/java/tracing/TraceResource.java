@@ -5,7 +5,7 @@ import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import lombok.RequiredArgsConstructor;
@@ -35,7 +35,7 @@ public class TraceResource {
     @GET
     @Path("/method/{method}")
     @Produces(MediaType.APPLICATION_JSON)
-    public List<HeimdallTrace> getByMethod(@QueryParam("method") String method) {
+    public List<HeimdallTrace> getByMethod(@PathParam("method") String method) {
         return traceRegistry.getByMethod(method);
     }
 

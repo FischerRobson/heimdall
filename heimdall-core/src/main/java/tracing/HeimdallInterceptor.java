@@ -53,16 +53,22 @@ public class HeimdallInterceptor {
         traceContext.startSpan(span);
 
         long start = System.currentTimeMillis();
+        String error = null;
         try {
             Object result = ctx.proceed();
             if (result != null) {
                 span.getTags().put("returnType", result.getClass().getSimpleName());
             }
-            traceContext.endSpan(spanId, System.currentTimeMillis() - start, null);
             return result;
-        } catch (Exception e) {
-            traceContext.endSpan(spanId, System.currentTimeMillis() - start, e.getMessage());
-            throw e;
+        } catch (Throwable t) {
+            // Throwable, not Exception — an Error (StackOverflowError, AssertionError...)
+            // must also be recorded on the span
+            error = t.getMessage() != null ? t.getMessage() : t.getClass().getSimpleName();
+            throw t;
+        } finally {
+            // always pop the span, otherwise every later span in this request
+            // would be attached to this one as its parent
+            traceContext.endSpan(spanId, System.currentTimeMillis() - start, error);
         }
     }
 

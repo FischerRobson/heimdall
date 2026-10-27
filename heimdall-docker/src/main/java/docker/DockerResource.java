@@ -26,6 +26,24 @@ public class DockerResource {
         return Response.ok(dockerService.getRunningContainers()).build();
     }
 
+    @GET
+    @Path("/host")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getHost() {
+        DockerHostInfo hostInfo = dockerService.getHostInfo();
+        if (hostInfo == null) {
+            return Response
+                    .status(Response.Status.SERVICE_UNAVAILABLE)
+                    .entity(Map.of(
+                            "status", Response.Status.SERVICE_UNAVAILABLE.getStatusCode(),
+                            "message", "Docker daemon not reachable",
+                            "timestamp", Instant.now().toString()
+                    ))
+                    .build();
+        }
+        return Response.ok(hostInfo).build();
+    }
+
     // scoped to this resource only — a global @Provider ExceptionMapper would also
     // intercept exceptions thrown by the host application's own endpoints. This module
     // has no dependency on heimdall-core, so it can't reuse its ErrorResponse type.

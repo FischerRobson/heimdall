@@ -46,15 +46,18 @@ function SectionTitle({ title, count }: { title: string; count?: number }) {
   )
 }
 
-function SpanRow({ span, depth, totalDuration, isSelected, onSelect }: {
+function SpanRow({ span, depth, traceStart, totalDuration, isSelected, onSelect }: {
   span: HeimdallSpan
   depth: number
+  traceStart: number
   totalDuration: number
   isSelected: boolean
   onSelect: () => void
 }) {
-  const left  = totalDuration > 0 ? (span.startTime % totalDuration) / totalDuration * 100 : 0
-  const width = totalDuration > 0 ? Math.max(span.duration / totalDuration * 100, 0.5) : 0.5
+  // span.startTime is an epoch timestamp — position it relative to the trace start
+  const offset = Math.max(span.startTime - traceStart, 0)
+  const width  = totalDuration > 0 ? Math.min(Math.max(span.duration / totalDuration * 100, 0.5), 100) : 0.5
+  const left   = totalDuration > 0 ? Math.min(offset / totalDuration * 100, 100 - width) : 0
   const color = span.error ? '#ef4444' : getLayerColor(span.layer)
   const durColor = span.duration > totalDuration * 0.7 ? '#ef4444'
                  : span.duration > totalDuration * 0.4 ? '#f59e0b'
@@ -122,6 +125,7 @@ function TraceDetail({ trace, onClose }: { trace: HeimdallTrace; onClose: () => 
         <SpanRow
           span={span}
           depth={depth}
+          traceStart={trace.startTime}
           totalDuration={trace.duration}
           isSelected={isSel}
           onSelect={() => setSelectedSpan(isSel ? null : span.id)}

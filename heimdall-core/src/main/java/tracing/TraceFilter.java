@@ -9,6 +9,7 @@ import jakarta.ws.rs.ext.Provider;
 import lombok.RequiredArgsConstructor;
 import org.jboss.resteasy.reactive.server.ServerRequestFilter;
 import org.jboss.resteasy.reactive.server.ServerResponseFilter;
+import org.jboss.resteasy.reactive.server.SimpleResourceInfo;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -20,6 +21,7 @@ import java.time.Instant;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
@@ -48,8 +50,24 @@ public class TraceFilter {
 
     private final ObjectMapper objectMapper;
 
+    // Heimdall's own REST resources, by class name (strings so heimdall-docker stays an
+    // optional module). Matched by resource class rather than by path because
+    // UriInfo.getPath() is relative to quarkus.rest.path — it never starts with "/heimdall".
+    private static final Set<String> HEIMDALL_RESOURCES = Set.of(
+            "metrics.MetricsResource",
+            "beans.BeansResource",
+            "connections.ConnectionsResource",
+            "health.HealthResource",
+            "threads.ThreadDumpResource",
+            "tracing.TraceResource",
+            "docker.DockerResource"
+    );
+
     @ServerRequestFilter
-    public void requestFilter(ContainerRequestContext ctx) {
+    public void requestFilter(ContainerRequestContext ctx, SimpleResourceInfo resourceInfo) {
+        // don't trace the dashboard's own polling — it would flood the registry
+        if (isHeimdallResource(resourceInfo)) return;
+
         Map<String, String> headers  = extractHeaders(ctx);
         Map<String, String> params   = extractParams(ctx);
         Map<String, String> cookies  = extractCookies(ctx);
@@ -83,10 +101,12 @@ public class TraceFilter {
         trace.setResponseHeaders(extractResponseHeaders(resCtx));
         trace.setResponseBody(extractResponseBody(resCtx));
 
-        // skip heimdall's own endpoints
-        if (trace.getPath().startsWith("/heimdall") || trace.getPath().startsWith("/q/")) return;
-
         traceRegistry.add(trace);
+    }
+
+    private boolean isHeimdallResource(SimpleResourceInfo resourceInfo) {
+        if (resourceInfo == null || resourceInfo.getResourceClass() == null) return false;
+        return HEIMDALL_RESOURCES.contains(resourceInfo.getResourceClass().getName());
     }
 
     private String extractRequestBody(ContainerRequestContext ctx) {

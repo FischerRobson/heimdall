@@ -93,7 +93,7 @@ public class KafkaConnection {
                     .type("messaging")
                     .technology("Kafka Consumer")
                     .status("DOWN")
-                    .stats(Map.of("error", e.getMessage()))
+                    .stats(Map.of("error", String.valueOf(e.getMessage())))
                     .checkedAt(Instant.now())
                     .build());
         }
@@ -153,7 +153,7 @@ public class KafkaConnection {
                     .type("messaging")
                     .technology("Kafka Producer")
                     .status("DOWN")
-                    .stats(Map.of("error", e.getMessage()))
+                    .stats(Map.of("error", String.valueOf(e.getMessage())))
                     .checkedAt(Instant.now())
                     .build());
         }
