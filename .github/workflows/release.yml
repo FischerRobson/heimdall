@@ -1,0 +1,57 @@
+name: Release
+
+# Publishes a version when a tag like v0.1.0 is pushed:
+#   git tag v0.1.0 && git push origin v0.1.0
+# - deploys heimdall (parent pom), heimdall-core and heimdall-docker to GitHub Packages
+# - creates a GitHub Release with the jars attached
+# The version comes from the tag; master keeps its -SNAPSHOT version.
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: write   # create the GitHub Release
+  packages: write   # deploy to GitHub Packages
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # also writes a settings.xml with a "github" server (matching distributionManagement)
+      # authenticated with the workflow's GITHUB_TOKEN
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          server-id: github
+          server-username: GITHUB_ACTOR
+          server-password: GITHUB_TOKEN
+
+      - name: Set version from tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          ./mvnw -B -q versions:set -DnewVersion="$VERSION" -DgenerateBackupPoms=false
+
+      # builds the dashboard into heimdall-core, runs the tests, and deploys the
+      # libraries only (-am brings the parent pom, which consumers need to resolve them)
+      - name: Build, test and publish to GitHub Packages
+        run: ./mvnw -B deploy -pl heimdall-core,heimdall-docker -am
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "Heimdall $VERSION" \
+            --generate-notes \
+            heimdall-core/target/heimdall-core-$VERSION.jar \
+            heimdall-core/target/heimdall-core-$VERSION-sources.jar \
+            heimdall-docker/target/heimdall-docker-$VERSION.jar \
+            heimdall-docker/target/heimdall-docker-$VERSION-sources.jar
