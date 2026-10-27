@@ -33,6 +33,38 @@ interface Props {
   data: BeanGraphData
 }
 
+type Health = 'ok' | 'slow' | 'error'
+
+interface MethodStats {
+  method: string
+  calls: number
+  errors: number
+  avgMs: number
+  minMs: number
+  maxMs: number
+  lastCalledAt: number
+  lastError: string | null
+  health: Health
+}
+
+interface BeanStats {
+  id: string        // same id as the graph node (fully qualified class name)
+  name: string
+  calls: number
+  errors: number
+  avgMs: number
+  maxMs: number
+  health: Health
+  methods: MethodStats[]
+}
+
+interface StatsResponse {
+  slowThresholdMs: number
+  beans: BeanStats[]
+}
+
+const STATS_REFRESH_MS = 5000
+
 const SCOPE_COLORS: Record<string, { border: string; bg: string; text: string }> = {
   ApplicationScoped: { border: '#00e5a0', bg: 'rgba(0,229,160,0.08)', text: '#00e5a0' },
   Singleton:         { border: '#3b82f6', bg: 'rgba(59,130,246,0.08)', text: '#3b82f6' },
@@ -45,6 +77,19 @@ const DEFAULT_COLOR = { border: '#475569', bg: 'rgba(71,85,105,0.08)', text: '#4
 
 function getColor(scope: string) {
   return SCOPE_COLORS[scope] ?? DEFAULT_COLOR
+}
+
+const HEALTH_COLORS: Record<Health, { border: string; bg: string; text: string }> = {
+  ok:    { border: '#00e5a0', bg: 'rgba(0,229,160,0.08)',  text: '#00e5a0' },
+  slow:  { border: '#f59e0b', bg: 'rgba(245,158,11,0.08)', text: '#f59e0b' },
+  error: { border: '#f43f5e', bg: 'rgba(244,63,94,0.08)',  text: '#f43f5e' },
+}
+
+// beans without @HeimdallMonitor (or not called yet) have no stats
+const NO_STATS_COLOR = { border: '#334155', bg: 'rgba(51,65,85,0.06)', text: '#475569' }
+
+function formatMs(ms: number) {
+  return ms >= 1000 ? `${(ms / 1000).toFixed(2)}s` : `${ms.toFixed(ms < 10 ? 2 : 0)}ms`
 }
 
 // edge endpoints are fully qualified names — search should only match the class name
@@ -76,6 +121,39 @@ export function BeansPage({ data }: Props) {
   const [detail, setDetail] = useState<DetailPanel | null>(null)
   const [hoveredScope, setHoveredScope] = useState<string | null>(null)
   const [hoveredNode, setHoveredNode] = useState<string | null>(null)
+  const [colorBy, setColorBy] = useState<'health' | 'scope'>('health')
+  const [stats, setStats] = useState<StatsResponse | null>(null)
+
+  const fetchStats = useCallback(() => {
+    fetch('/heimdall/api/beans/stats')
+      .then(res => (res.ok ? res.json() : null))
+      .then((data: StatsResponse | null) => { if (data) setStats(data) })
+      // keep showing the last good stats if a poll fails
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    fetchStats()
+    const interval = setInterval(fetchStats, STATS_REFRESH_MS)
+    return () => clearInterval(interval)
+  }, [fetchStats])
+
+  const clearStats = useCallback(() => {
+    fetch('/heimdall/api/beans/stats', { method: 'DELETE' })
+      .then(fetchStats)
+      .catch(() => {})
+  }, [fetchStats])
+
+  const statsById = useMemo(() =>
+    new Map((stats?.beans ?? []).map(b => [b.id, b])),
+    [stats]
+  )
+
+  const colorFor = useCallback((bean: BeanNode) => {
+    if (colorBy === 'scope') return getColor(bean.scope)
+    const s = statsById.get(bean.id)
+    return s ? HEALTH_COLORS[s.health] : NO_STATS_COLOR
+  }, [colorBy, statsById])
 
   const scopes = useMemo(() => [...new Set(beans.map(b => b.scope))], [beans])
 
@@ -103,7 +181,8 @@ export function BeansPage({ data }: Props) {
     const V_GAP = 110
 
     return visibleBeans.map((bean, i) => {
-      const color = getColor(bean.scope)
+      const color = colorFor(bean)
+      const beanStats = statsById.get(bean.id)
       const connected = focusedBean ? getConnected(focusedBean, beanEdges) : null
 
       let opacity = 1
@@ -169,6 +248,17 @@ export function BeansPage({ data }: Props) {
               }}>
                 {bean.fullClass.split('.').slice(0, -1).join('.')}
               </div>
+              {beanStats && (
+                <div style={{
+                  fontSize: '9px',
+                  color: HEALTH_COLORS[beanStats.health].text,
+                  fontFamily: 'monospace',
+                  marginTop: '4px'
+                }}>
+                  {beanStats.calls} call{beanStats.calls !== 1 ? 's' : ''} · avg {formatMs(beanStats.avgMs)}
+                  {beanStats.errors > 0 && ` · ${beanStats.errors} err`}
+                </div>
+              )}
             </div>
           )
         },
@@ -184,7 +274,7 @@ export function BeansPage({ data }: Props) {
         }
       }
     })
-  }, [visibleBeans, focusedBean, searchQuery, beanEdges, hoveredNode])
+  }, [visibleBeans, focusedBean, searchQuery, beanEdges, hoveredNode, colorFor, statsById])
 
   const buildEdges = useCallback((): Edge[] => {
     const connected = focusedBean ? getConnected(focusedBean, beanEdges) : null
@@ -271,6 +361,8 @@ export function BeansPage({ data }: Props) {
     setHiddenScopes(new Set())
   }, [])
 
+  const detailStats = detail ? statsById.get(detail.id) : undefined
+
   return (
     <div className="bg-gray-900 border border-gray-700 rounded-xl col-span-2" style={{ height: '520px' }}>
 
@@ -311,9 +403,34 @@ export function BeansPage({ data }: Props) {
           })}
         </div>
 
+        <div className="ml-auto flex border border-gray-700 rounded-md overflow-hidden">
+          {(['health', 'scope'] as const).map(mode => (
+            <button
+              key={mode}
+              onClick={() => setColorBy(mode)}
+              title={mode === 'health'
+                ? `green ok · amber avg > ${stats?.slowThresholdMs ?? '?'}ms · red has errors · gray no stats`
+                : 'color nodes by CDI scope'}
+              className={`px-2.5 py-1.5 font-mono text-xs transition-all ${
+                colorBy === mode ? 'bg-white/10 text-gray-200' : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'
+              }`}
+            >
+              {mode}
+            </button>
+          ))}
+        </div>
+
+        <button
+          onClick={clearStats}
+          title="reset the call counters of every bean"
+          className="border border-gray-700 rounded-md px-3 py-1.5 font-mono text-xs text-gray-500 hover:border-gray-500 hover:text-gray-300 hover:bg-white/5 transition-all"
+        >
+          clear stats
+        </button>
+
         <button
           onClick={reset}
-          className="ml-auto border border-gray-700 rounded-md px-3 py-1.5 font-mono text-xs text-gray-500 hover:border-gray-500 hover:text-gray-300 hover:bg-white/5 transition-all"
+          className="border border-gray-700 rounded-md px-3 py-1.5 font-mono text-xs text-gray-500 hover:border-gray-500 hover:text-gray-300 hover:bg-white/5 transition-all"
         >
           reset
         </button>
@@ -351,10 +468,13 @@ export function BeansPage({ data }: Props) {
         )}
 
         {detail && (
-          <div className="absolute top-3 right-3 bg-gray-950 border border-gray-700 rounded-lg p-3 w-48">
+          <div
+            className={`absolute top-3 right-3 bg-gray-950 border border-gray-700 rounded-lg p-3 overflow-y-auto ${detailStats ? 'w-96' : 'w-48'}`}
+            style={{ maxHeight: 'calc(100% - 24px)' }}
+          >
             <div
               className="font-mono text-sm font-medium mb-3"
-              style={{ color: getColor(detail.scope).text }}
+              style={{ color: detailStats ? HEALTH_COLORS[detailStats.health].text : getColor(detail.scope).text }}
             >
               {detail.name}
             </div>
@@ -371,9 +491,47 @@ export function BeansPage({ data }: Props) {
                 </div>
               ))}
             </div>
+
+            {detailStats ? (
+              <MethodTable methods={detailStats.methods} />
+            ) : (
+              <div className="mt-3 font-mono text-xs text-gray-600">
+                no calls recorded — add @HeimdallMonitor to collect stats
+              </div>
+            )}
           </div>
         )}
       </div>
+    </div>
+  )
+}
+function MethodTable({ methods }: { methods: MethodStats[] }) {
+  return (
+    <div className="mt-3 border-t border-gray-800 pt-3">
+      <table className="w-full font-mono text-xs">
+        <thead>
+          <tr className="text-gray-500 text-left">
+            <th className="font-normal pb-1">method</th>
+            <th className="font-normal pb-1 text-right">calls</th>
+            <th className="font-normal pb-1 text-right">err</th>
+            <th className="font-normal pb-1 text-right">avg</th>
+            <th className="font-normal pb-1 text-right">max</th>
+          </tr>
+        </thead>
+        <tbody>
+          {methods.map(m => (
+            <tr key={m.method} title={m.lastError ? `last error: ${m.lastError}` : undefined}>
+              <td className="py-0.5 pr-2 truncate max-w-[140px]" style={{ color: HEALTH_COLORS[m.health].text }}>
+                {m.method}
+              </td>
+              <td className="py-0.5 text-right text-gray-300">{m.calls}</td>
+              <td className={`py-0.5 text-right ${m.errors > 0 ? 'text-rose-400' : 'text-gray-600'}`}>{m.errors}</td>
+              <td className="py-0.5 text-right text-gray-300">{formatMs(m.avgMs)}</td>
+              <td className="py-0.5 text-right text-gray-400">{formatMs(m.maxMs)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }

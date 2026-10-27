@@ -248,6 +248,8 @@ heimdall.traces.limit=100
 # stack frames per thread, and thread dumps kept for comparison
 heimdall.threaddump.max-depth=100
 heimdall.threaddump.history-limit=10
+# per-method stats on the beans page: methods averaging above this (ms) show as slow
+heimdall.monitor.slow-threshold=500
 # restrict method tracing to these packages (comma-separated)
 heimdall.tracing.packages=com.example
 ```
@@ -263,6 +265,8 @@ heimdall.tracing.packages=com.example
 | POST | `/heimdall/api/metrics/gc` | Trigger a garbage collection |
 | GET | `/heimdall/api/metrics/heapdump?live=true` | Download a `.hprof` heap dump (pauses the JVM — dev/staging only) |
 | GET | `/heimdall/api/beans/graph` | CDI bean dependency graph |
+| GET | `/heimdall/api/beans/stats` | Per-method call stats of `@HeimdallMonitor` beans (calls, errors, avg/min/max time, health) |
+| DELETE | `/heimdall/api/beans/stats` | Reset the per-method stats |
 | GET | `/heimdall/api/connections` | Detected connection pools |
 | GET | `/heimdall/api/traces` | Recent request traces (Heimdall's own requests excluded) |
 | GET | `/heimdall/api/traces/errors` | Traces with status ≥ 400 |

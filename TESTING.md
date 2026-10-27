@@ -79,6 +79,9 @@ Depois confira no dashboard:
 | trace → `GET /orders/fail` | status 500 e os spans em vermelho com `payment provider unavailable (simulated)` |
 | trace → `GET /orders/report` | span longo no waterfall |
 | **beans** | só `OrderResource → OrderService → OrderRepository` (os beans do Heimdall ficam de fora) |
+| beans → cor `health` | depois do roteiro: `OrderService` vermelho (`fail` e o 404), `slowReport` âmbar na tabela; nós mostram chamadas e tempo médio |
+| beans → clique num bean | tabela por método (calls / err / avg / max); passar o mouse numa linha com erro mostra o último erro |
+| beans → `clear stats` | zera os contadores; os nós ficam cinza até a próxima chamada |
 | **threads** | `capture dump` duas vezes → histórico → `vs` compara os dois; `export txt` gera formato jstack; `copy` na stack trace |
 | **conns** | vazio no demo (não tem banco/Kafka/Redis/RabbitMQ) |
 | **docker** | lista os containers se o Docker estiver rodando; sem Docker, "no running containers" |
@@ -186,7 +189,7 @@ cd heimdall-ui && npm install && npm run dev
 ## 5. Rodar só os testes
 
 ```bash
-./mvnw verify                                   # backend (25 testes)
+./mvnw verify                                   # backend (30 testes)
 cd heimdall-ui && npx tsc --noEmit -p .         # type check do frontend
 cd heimdall-ui && npm run build                 # build do frontend
 ```

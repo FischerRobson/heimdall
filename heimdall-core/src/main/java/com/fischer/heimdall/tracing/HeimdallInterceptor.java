@@ -1,5 +1,6 @@
 package com.fischer.heimdall.tracing;
 
+import com.fischer.heimdall.beans.MethodStatsRegistry;
 import jakarta.annotation.Priority;
 import jakarta.interceptor.AroundInvoke;
 import jakarta.interceptor.Interceptor;
@@ -26,50 +27,64 @@ public class HeimdallInterceptor {
             "(?i)^(password|secret|token|apikey|api_key|authorization|accesstoken|refreshtoken|credential)$");
 
     private final TraceContext traceContext;
+    private final MethodStatsRegistry statsRegistry;
 
     @ConfigProperty(name = "heimdall.tracing.packages")
     Optional<String> tracingPackages;
 
     @AroundInvoke
     public Object intercept(InvocationContext ctx) throws Exception {
-        if (!traceContext.hasActiveTrace() || !shouldTrace(ctx)) {
+        // the target is the generated subclass; its superclass is the bean class itself
+        Class<?> beanClass = ctx.getTarget().getClass().getSuperclass();
+        if (IS_INTERNAL.get(beanClass)) {
             return ctx.proceed();
         }
 
-        String className  = ctx.getTarget().getClass().getSuperclass().getSimpleName();
-        String methodName = ctx.getMethod().getName();
-        String layer      = detectLayer(className);
-        String spanId     = UUID.randomUUID().toString();
+        // stats are collected on every call — scheduler and messaging calls have no
+        // HTTP trace but still count. A span is only built when a trace is active.
+        HeimdallSpan span = traceContext.hasActiveTrace() && shouldTrace(beanClass)
+                ? startSpan(beanClass, ctx)
+                : null;
 
-        HeimdallSpan span = HeimdallSpan.builder()
-                .id(spanId)
-                .className(className)
-                .methodName(methodName)
-                .layer(layer)
-                .startTime(System.currentTimeMillis())
-                .build();
-
-        tagArguments(span, ctx);
-        traceContext.startSpan(span);
-
-        long start = System.currentTimeMillis();
-        String error = null;
+        long start = System.nanoTime();
+        Throwable failure = null;
         try {
             Object result = ctx.proceed();
-            if (result != null) {
+            if (span != null && result != null) {
                 span.getTags().put("returnType", result.getClass().getSimpleName());
             }
             return result;
         } catch (Throwable t) {
             // Throwable, not Exception — an Error (StackOverflowError, AssertionError...)
-            // must also be recorded on the span
-            error = t.getMessage() != null ? t.getMessage() : t.getClass().getSimpleName();
+            // must also be recorded
+            failure = t;
             throw t;
         } finally {
-            // always pop the span, otherwise every later span in this request
-            // would be attached to this one as its parent
-            traceContext.endSpan(spanId, System.currentTimeMillis() - start, error);
+            long elapsed = System.nanoTime() - start;
+            statsRegistry.record(beanClass.getName(), ctx.getMethod().getName(), elapsed, failure);
+            if (span != null) {
+                String error = failure == null ? null
+                        : failure.getMessage() != null ? failure.getMessage() : failure.getClass().getSimpleName();
+                // always pop the span, otherwise every later span in this request
+                // would be attached to this one as its parent
+                traceContext.endSpan(span.getId(), elapsed / 1_000_000, error);
+            }
         }
+    }
+
+    private HeimdallSpan startSpan(Class<?> beanClass, InvocationContext ctx) {
+        String className = beanClass.getSimpleName();
+        HeimdallSpan span = HeimdallSpan.builder()
+                .id(UUID.randomUUID().toString())
+                .className(className)
+                .methodName(ctx.getMethod().getName())
+                .layer(detectLayer(className))
+                .startTime(System.currentTimeMillis())
+                .build();
+
+        tagArguments(span, ctx);
+        traceContext.startSpan(span);
+        return span;
     }
 
     // automatic tags — captures actual values for simple/printable argument types
@@ -100,19 +115,26 @@ public class HeimdallInterceptor {
         return value.getClass().getSimpleName();
     }
 
-    private boolean shouldTrace(InvocationContext ctx) {
-        String className  = ctx.getTarget().getClass().getSuperclass().getName();
-        String simpleName = ctx.getTarget().getClass().getSuperclass().getSimpleName();
+    // framework internals and Heimdall itself — neither traced nor counted.
+    // Cached per class: this runs on every intercepted call.
+    private static final ClassValue<Boolean> IS_INTERNAL = new ClassValue<>() {
+        @Override
+        protected Boolean computeValue(Class<?> type) {
+            String name = type.getName();
+            return name.startsWith("io.quarkus")
+                    || name.startsWith("jakarta")
+                    || name.startsWith("org.apache.camel")
+                    || name.startsWith("io.netty")
+                    || name.startsWith("org.jboss")
+                    || name.startsWith("io.smallrye")
+                    || name.startsWith("io.vertx")
+                    || name.startsWith("com.fischer.heimdall.");
+        }
+    };
 
-        // skip true framework internals only
-        if (className.startsWith("io.quarkus")
-                || className.startsWith("jakarta")
-                || className.startsWith("org.apache.camel")
-                || className.startsWith("io.netty")
-                || className.startsWith("org.jboss")
-                || className.startsWith("io.smallrye")
-                || className.startsWith("io.vertx")
-                || className.startsWith("com.fischer.heimdall.")) return false; // Heimdall itself
+    private boolean shouldTrace(Class<?> beanClass) {
+        String className  = beanClass.getName();
+        String simpleName = beanClass.getSimpleName();
 
         // strategy B — configured packages
         if (tracingPackages.isPresent()) {

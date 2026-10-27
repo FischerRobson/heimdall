@@ -2,7 +2,7 @@
 
 Estado do projeto após a revisão de código de outubro/2026 e plano das próximas etapas. Os itens concluídos ficam registrados com o commit correspondente; o restante está em ordem de prioridade.
 
-> Build, testes (25) e demo validados rodando em 26/10/2026 — ver `TESTING.md`.
+> Build, testes (30) e demo validados rodando em 27/10/2026 — ver `TESTING.md`.
 
 ---
 
@@ -63,6 +63,14 @@ Primeira suíte (`heimdall-core/src/test`) cobrindo API, interceptor, `TraceCont
 
 `actions/checkout`, `actions/setup-java` e `actions/setup-node` atualizadas de `@v4` para `@v5` em `ci.yml` e `release.yml` (as v4 rodavam em Node 20, depreciado nos runners).
 
+### Estatísticas por método (Fase 2)
+
+- `MethodStatsRegistry`: chamadas, erros, tempo médio/mín/máx, última chamada e último erro por `classe#método`, com contadores atômicos.
+- O interceptor coleta em **toda** chamada de um bean `@HeimdallMonitor` da aplicação, com ou sem trace HTTP ativo (scheduler e mensageria entram). O filtro de classes internas ficou em cache por classe (`ClassValue`).
+- `GET/DELETE /heimdall/api/beans/stats`; limiar de lento em `heimdall.monitor.slow-threshold` (padrão 500 ms).
+- Página beans: nós coloridos por saúde (alternável com cor por escopo), chamadas e tempo médio no nó, tabela por método no painel e botão `clear stats`.
+- Validado no demo: `slowReport` ~503 ms aparece como lento; `fail` e o 404 de `get` como erro.
+
 ### Tracing (revisão anterior)
 
 Já feitos antes desta revisão: `tags` automáticas por parâmetro + `Heimdall.tag()`, captura de request/response body com redação de campos sensíveis, contexto de trace em Vert.x context locals.
@@ -80,42 +88,35 @@ Já feitos antes desta revisão: `tags` automáticas por parâmetro + `Heimdall.
 
 ## 3. Próximas etapas (por prioridade)
 
-### P1 — Fase 2: estatísticas por método (`@HeimdallMonitor`)
-O interceptor já existe e `BeanStats` está criado mas vazio.
-- `MethodStatsRegistry`: chamadas, erros, tempo total/mín/máx/médio e última chamada por `classe#método` (contadores atômicos, sem lock).
-- **Coletar sempre**, não só com trace HTTP ativo — hoje o interceptor sai cedo sem trace, então chamadas do scheduler e de mensageria ficam de fora.
-- Endpoint `/heimdall/api/beans/stats`; nós do grafo coloridos por saúde (verde / âmbar se lento / vermelho com erros); tabela por método no painel do bean.
-- Limiar de "lento" configurável (`heimdall.monitor.slow-threshold`).
-
-### P2 — Fase 4: alertas
+### P1 — Fase 4: alertas
 - `AlertService` avaliando cada snapshot do `MetricsCollector`: heap %, CPU %, threads bloqueadas, uso de pool (Agroal/Hikari), lag do Kafka, deadlocks.
 - Limiares em `application.properties` (`heimdall.alert.*`), com histerese/duração mínima para não piscar.
 - `/heimdall/api/alerts` (ativos + recentes), push pelo WebSocket existente, badge no cabeçalho, notificações do navegador opcionais.
 
-### P3 — Tempo real unificado e estados de UI
+### P2 — Tempo real unificado e estados de UI
 - Estender o WebSocket para alertas e novos traces; remover a mistura polling/WebSocket entre páginas.
 - Banner global de "desconectado" alimentado pelo estado de conexão.
 - Componentes compartilhados `LoadingState` / `EmptyState` / `ErrorState`.
 - `:focus-visible` nos botões e cards (navegação por teclado).
 
-### P4 — Tracing mais profundo
+### P3 — Tracing mais profundo
 - Spans de SQL (via Agroal/JDBC ou `StatementInspector` do Hibernate) — mostrar qual query pesou dentro do span do repository.
 - Propagar `traceparent` em chamadas HTTP de saída (REST Client).
 - Amostragem configurável (`heimdall.tracing.sample-rate`) e limite de tamanho do registro em bytes, não só em quantidade.
 - Rastrear classes fora da convenção de nome (hoje só `*Resource/*Service/*Repository/*Dao` ou pacotes configurados).
 
-### P5 — Segurança mínima (bloqueador para sair do ambiente local)
+### P4 — Segurança mínima (bloqueador para sair do ambiente local)
 - Autenticação opcional em `/heimdall/*` (ex.: `heimdall.auth.token` ou integração com `quarkus-security`).
 - CORS configurável (hoje fixo em `localhost:5173`).
 - Flags para desligar recursos sensíveis: heap dump, captura de bodies, cookies/headers.
 - Não expor `e.getMessage()` cru nas respostas de erro fora de dev.
 
-### P6 — Fase 7: extensão Quarkus
+### P5 — Fase 7: extensão Quarkus
 Pré-requisitos já resolvidos: prefixo das rotas, módulo Docker opcional, pacotes `com.fischer.heimdall`, UI empacotada no jar e core sem configuração própria.
 - Separar `runtime` / `deployment`; registrar beans e rotas pela extensão.
 - Publicar no Maven Central (`io.heimdall:heimdall-quarkus`).
 
-### P7 — Longo prazo
+### P6 — Longo prazo
 Kubernetes (`heimdall-kubernetes`), Spring Boot starter, monitoramento multi-instância, `heimdall-standalone` (JMX/Actuator remoto), suporte a GraalVM native, tema claro.
 
 ---
@@ -127,4 +128,5 @@ Kubernetes (`heimdall-kubernetes`), Spring Boot starter, monitoramento multi-ins
 - `quarkus.redis.port` não é uma propriedade real do Quarkus (`RedisConnection`).
 - `MetricsService.getThreadInfo` chama `getThreadInfo(id)` uma vez por thread — usar a versão em lote.
 - `HealthResource` tem a versão `"1.0.0"` fixa no código.
+- Stats por método: um único erro deixa o método vermelho até `clear stats`, e exceções de cliente (ex.: `NotFoundException` → 404) contam como erro. Avaliar janela de tempo / taxa de erro e ignorar 4xx.
 - Mais testes: detectores Kafka/Redis/RabbitMQ e testes de frontend (Vitest) para utilitários como `diffDumps` e `toCsv`.

@@ -1,6 +1,7 @@
 package com.fischer.heimdall.beans;
 
 import com.fischer.heimdall.exceptions.ExceptionMappers;
+import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.Path;
@@ -11,18 +12,38 @@ import lombok.RequiredArgsConstructor;
 import org.jboss.resteasy.reactive.server.ServerExceptionMapper;
 import com.fischer.heimdall.tracing.HeimdallMonitor;
 
+import java.util.Map;
+
 @Path("/heimdall/api/beans")
 @RequiredArgsConstructor
 @HeimdallMonitor
 public class BeansResource {
 
     private final BeansService beansService;
+    private final MethodStatsRegistry statsRegistry;
 
     @GET
     @Path("/graph")
     @Produces(MediaType.APPLICATION_JSON)
     public Response getGraph() {
         return Response.ok(beansService.getGraph()).build();
+    }
+
+    @GET
+    @Path("/stats")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getStats() {
+        return Response.ok(Map.of(
+                "slowThresholdMs", statsRegistry.getSlowThresholdMs(),
+                "beans", statsRegistry.snapshot()
+        )).build();
+    }
+
+    @DELETE
+    @Path("/stats")
+    public Response resetStats() {
+        statsRegistry.reset();
+        return Response.noContent().build();
     }
 
     // scoped to this resource only — see MetricsResource for rationale
