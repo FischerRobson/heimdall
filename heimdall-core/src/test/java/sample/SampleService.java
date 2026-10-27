@@ -1,11 +1,11 @@
 package sample;
 
 import jakarta.enterprise.context.ApplicationScoped;
-import tracing.HeimdallMonitor;
+import com.fischer.heimdall.tracing.HeimdallMonitor;
 
 /**
  * Stand-in for a host-application service. Lives outside Heimdall's own packages
- * because the interceptor deliberately skips classes in "tracing.".
+ * because the interceptor deliberately skips classes in "com.fischer.heimdall.".
  */
 @ApplicationScoped
 @HeimdallMonitor

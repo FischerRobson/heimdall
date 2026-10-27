@@ -6,7 +6,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
-import tracing.HeimdallMonitor;
+import com.fischer.heimdall.tracing.HeimdallMonitor;
 
 /**
  * Stand-in for a host-application endpoint. Its path has no /heimdall/api prefix —
