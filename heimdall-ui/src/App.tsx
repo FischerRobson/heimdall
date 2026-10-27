@@ -1,13 +1,24 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { Metrics } from './types/metrics'
-import { BeansPage } from './pages/beans/BeansPage'
 import { JvmInfo } from './components/JvmInfo'
 import { BifrostLoader } from './components/BifrostLoader'
-import { DockerPage } from './pages/docker/DockerPage'
 import { DashboardPage } from './pages/dashboard/DashboardPage'
-import { TracePage } from './pages/trace/TracePage'
-import { ConnectionsPage } from './pages/connections/ConnectionsPage'
-import { ThreadDumpPage } from './pages/threads/ThreadDumpPage'
+
+// the dashboard is the landing page and stays in the main bundle; the other pages are
+// split into their own chunks (BeansPage pulls in @xyflow/react) and load on first visit
+const BeansPage       = lazy(() => import('./pages/beans/BeansPage').then(m => ({ default: m.BeansPage })))
+const DockerPage      = lazy(() => import('./pages/docker/DockerPage').then(m => ({ default: m.DockerPage })))
+const TracePage       = lazy(() => import('./pages/trace/TracePage').then(m => ({ default: m.TracePage })))
+const ConnectionsPage = lazy(() => import('./pages/connections/ConnectionsPage').then(m => ({ default: m.ConnectionsPage })))
+const ThreadDumpPage  = lazy(() => import('./pages/threads/ThreadDumpPage').then(m => ({ default: m.ThreadDumpPage })))
+
+function PageLoading() {
+  return (
+    <div className="flex items-center justify-center h-64">
+      <p className="font-mono text-xs text-gray-600 tracking-widest uppercase animate-pulse">loading…</p>
+    </div>
+  )
+}
 
 export function App() {
   const [metrics, setMetrics] = useState<Metrics | null>(null)
@@ -90,11 +101,13 @@ export function App() {
           ))}
         </div>
         {page === 'dashboard' && <DashboardPage />}
-        {page === 'docker' && <DockerPage />}
-        {page === 'beans' && beanGraph && <BeansPage data={beanGraph} />}
-        {page === 'trace' && <TracePage />}
-        {page === 'conns' && <ConnectionsPage />}
-        {page === 'threads' && <ThreadDumpPage />}
+        <Suspense fallback={<PageLoading />}>
+          {page === 'docker' && <DockerPage />}
+          {page === 'beans' && beanGraph && <BeansPage data={beanGraph} />}
+          {page === 'trace' && <TracePage />}
+          {page === 'conns' && <ConnectionsPage />}
+          {page === 'threads' && <ThreadDumpPage />}
+        </Suspense>
       </div>
     </div>
   )

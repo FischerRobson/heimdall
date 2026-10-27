@@ -1,6 +1,7 @@
 package threads;
 
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import tracing.HeimdallMonitor;
 
@@ -13,6 +14,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
 @ApplicationScoped
 @HeimdallMonitor
@@ -20,6 +22,16 @@ public class ThreadDumpService {
 
     @ConfigProperty(name = "heimdall.threaddump.max-depth", defaultValue = "100")
     int maxStackDepth;
+
+    @Inject
+    ThreadDumpHistory history;
+
+    /** Captures a dump and keeps it in the history. */
+    public ThreadDump captureAndStore() {
+        ThreadDump dump = dump();
+        history.add(dump);
+        return dump;
+    }
 
     public ThreadDump dump() {
         ThreadMXBean threadMXBean = ManagementFactory.getThreadMXBean();
@@ -34,6 +46,7 @@ public class ThreadDumpService {
         }
 
         return ThreadDump.builder()
+                .id(UUID.randomUUID().toString())
                 .timestamp(Instant.now())
                 .threadCount(entries.size())
                 .deadlockedThreadCount(deadlockedIds.size())

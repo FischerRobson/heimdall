@@ -11,6 +11,7 @@ import java.util.List;
 @Setter
 @Builder
 public class ThreadDump {
+    private String id;
     private Instant timestamp;
     private int threadCount;
     private int deadlockedThreadCount;

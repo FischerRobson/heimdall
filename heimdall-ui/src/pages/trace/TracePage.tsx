@@ -1,5 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, type ReactNode } from 'react'
 import { HeimdallSpan, HeimdallTrace } from '../../types/traces'
+import { CopyButton } from '../../components/CopyButton'
+import { downloadJson, timestampedName } from '../../utils/download'
 
 const METHOD_COLORS: Record<string, string> = {
   GET:    '#00e5a0',
@@ -118,7 +120,7 @@ function TraceDetail({ trace, onClose }: { trace: HeimdallTrace; onClose: () => 
   const reqHeaders  = Object.entries(trace.requestHeaders ?? {})
   const resHeaders  = Object.entries(trace.responseHeaders ?? {})
 
-  function renderSpanTree(span: HeimdallSpan, depth: number): React.ReactNode {
+  function renderSpanTree(span: HeimdallSpan, depth: number): ReactNode {
     const isSel = selectedSpan === span.id
     return (
       <div key={span.id}>
@@ -147,8 +149,9 @@ function TraceDetail({ trace, onClose }: { trace: HeimdallTrace; onClose: () => 
               </div>
             </div>
             {span.error && (
-              <div className="bg-red-950 border border-red-900 rounded p-2 mb-2 font-mono text-xs text-red-400">
-                {span.error}
+              <div className="bg-red-950 border border-red-900 rounded p-2 mb-2 font-mono text-xs text-red-400 flex items-start justify-between gap-2">
+                <span className="break-all">{span.error}</span>
+                <CopyButton text={`${span.className}.${span.methodName}(): ${span.error}`} />
               </div>
             )}
             {span.tags && Object.keys(span.tags).length > 0 && (
@@ -186,6 +189,13 @@ function TraceDetail({ trace, onClose }: { trace: HeimdallTrace; onClose: () => 
               {trace.status}
             </div>
             <div className="font-mono text-xs text-gray-500">{trace.duration}ms</div>
+            <button
+              onClick={() => downloadJson(`${timestampedName('heimdall-trace', new Date(trace.timestamp))}.json`, trace)}
+              title="export this trace as JSON"
+              className="font-mono text-xs text-gray-500 border border-gray-700 hover:border-gray-500 hover:text-gray-300 hover:bg-white/5 rounded px-2 py-0.5 ml-2 transition-colors"
+            >
+              json
+            </button>
             <button
               onClick={onClose}
               className="font-mono text-xs text-gray-600 hover:text-gray-300 hover:bg-white/5 rounded px-1.5 py-0.5 ml-2 transition-colors"
@@ -250,7 +260,10 @@ function TraceDetail({ trace, onClose }: { trace: HeimdallTrace; onClose: () => 
               </div>
               {trace.requestBody && (
                 <div>
-                  <SectionTitle title="Body" />
+                  <div className="flex items-start justify-between gap-2">
+                    <SectionTitle title="Body" />
+                    <CopyButton text={trace.requestBody} />
+                  </div>
                   <pre className="bg-gray-900 border border-gray-800 rounded p-3 font-mono text-xs text-gray-300 whitespace-pre-wrap break-all">
                     {trace.requestBody}
                   </pre>
@@ -273,7 +286,10 @@ function TraceDetail({ trace, onClose }: { trace: HeimdallTrace; onClose: () => 
               </div>
               {trace.responseBody && (
                 <div>
-                  <SectionTitle title="Body" />
+                  <div className="flex items-start justify-between gap-2">
+                    <SectionTitle title="Body" />
+                    <CopyButton text={trace.responseBody} />
+                  </div>
                   <pre className="bg-gray-900 border border-gray-800 rounded p-3 font-mono text-xs text-gray-300 whitespace-pre-wrap break-all">
                     {trace.responseBody}
                   </pre>
@@ -376,9 +392,19 @@ export function TracePage() {
     <div className="p-6 max-w-full">
       <div className="flex items-center justify-between mb-5">
         <h2 className="font-mono text-xs tracking-widest uppercase text-gray-500">Trace Viewer</h2>
-        <div className="flex items-center gap-2 font-mono text-xs text-green-400">
-          <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-          {traces.length} traces
+        <div className="flex items-center gap-3">
+          <button
+            disabled={filtered.length === 0}
+            onClick={() => downloadJson(`${timestampedName('heimdall-traces')}.json`, filtered)}
+            title="export the traces currently shown (respects search and filters)"
+            className="font-mono text-xs tracking-widest uppercase px-3 py-1.5 rounded border border-gray-700 text-gray-400 hover:border-gray-500 hover:text-gray-200 hover:bg-white/5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            export json
+          </button>
+          <div className="flex items-center gap-2 font-mono text-xs text-green-400">
+            <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+            {traces.length} traces
+          </div>
         </div>
       </div>
 

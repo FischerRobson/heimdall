@@ -14,8 +14,18 @@ export interface ThreadDumpEntry {
 }
 
 export interface ThreadDump {
+  id: string
   timestamp: string
   threadCount: number
   deadlockedThreadCount: number
   threads: ThreadDumpEntry[]
+}
+
+// entry of /threads/dumps — a stored dump without stack traces
+export interface ThreadDumpSummary {
+  id: string
+  timestamp: string
+  threadCount: number
+  deadlockedThreadCount: number
+  stateCounts: Record<string, number>
 }

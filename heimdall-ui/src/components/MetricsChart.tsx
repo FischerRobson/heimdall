@@ -1,6 +1,30 @@
 import { useState } from 'react'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { Metrics } from '../types/metrics'
+import { downloadCsv, downloadJson, timestampedName } from '../utils/download'
+
+const CSV_HEADERS = [
+  'timestamp', 'heap_used_mb', 'heap_committed_mb', 'heap_max_mb', 'heap_percent',
+  'process_cpu_percent', 'system_cpu_percent',
+  'threads', 'threads_blocked', 'threads_waiting', 'threads_timed_waiting', 'threads_peak',
+  'gc_collections', 'gc_time_ms',
+]
+
+function exportCsv(history: SnapshotEntry[]) {
+  const rows = history.map(({ timestamp, metrics: m }) => {
+    const gcs = m.garbageCollectorInfo?.garbageCollectorList ?? []
+    return [
+      timestamp,
+      m.memoryInfo.inUsage, m.memoryInfo.committed, m.memoryInfo.maxAllowed, m.memoryInfo.percentage,
+      m.cpuInfo.processCpuLoad, m.cpuInfo.systemCpuLoad,
+      m.threadInfo.threadCount, m.threadInfo.threadBlocked, m.threadInfo.threadWaiting,
+      m.threadInfo.threadTimedWaiting, m.threadInfo.threadPeak,
+      gcs.reduce((acc, gc) => acc + gc.collectionCount, 0),
+      gcs.reduce((acc, gc) => acc + gc.collectionTime, 0),
+    ]
+  })
+  downloadCsv(`${timestampedName('heimdall-metrics')}.csv`, CSV_HEADERS, rows)
+}
 
 interface Props {
   history: SnapshotEntry[]
@@ -111,6 +135,21 @@ export function MetricsChart({ history }: Props) {
             {tabs[key].label}
           </button>
         ))}
+        <div className="ml-auto flex gap-2">
+          {(['csv', 'json'] as const).map(format => (
+            <button
+              key={format}
+              disabled={history.length === 0}
+              onClick={() => format === 'csv'
+                ? exportCsv(history)
+                : downloadJson(`${timestampedName('heimdall-metrics')}.json`, history)}
+              title={`export the last ${history.length} snapshots as ${format.toUpperCase()}`}
+              className="border border-gray-700 rounded-md px-2.5 py-1.5 font-mono text-xs tracking-widest uppercase text-gray-500 hover:border-gray-500 hover:text-gray-300 hover:bg-white/5 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {format}
+            </button>
+          ))}
+        </div>
       </div>
 
       {latest && (

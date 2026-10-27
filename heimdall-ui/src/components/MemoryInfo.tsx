@@ -25,13 +25,24 @@ export function MemoryInfo({ data }: Props) {
         <h2 className="text-green-400 font-mono text-xs tracking-widest uppercase">
           Heap Memory
         </h2>
-        <button
-          onClick={runGc}
-          disabled={running}
-          className="font-mono text-xs tracking-widest uppercase px-2.5 py-1 rounded border border-gray-700 text-gray-400 hover:border-green-400 hover:text-green-400 hover:bg-green-400/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {running ? 'running…' : 'run gc'}
-        </button>
+        <div className="flex items-center gap-2">
+          {/* a plain link so the browser streams the .hprof straight to disk */}
+          <a
+            href="/heimdall/api/metrics/heapdump?live=true"
+            download
+            title="Downloads a .hprof heap dump (live objects). Pauses the JVM while it is written and can be as large as the heap."
+            className="font-mono text-xs tracking-widest uppercase px-2.5 py-1 rounded border border-gray-700 text-gray-400 hover:border-amber-400 hover:text-amber-400 hover:bg-amber-400/5 transition-colors"
+          >
+            heap dump
+          </a>
+          <button
+            onClick={runGc}
+            disabled={running}
+            className="font-mono text-xs tracking-widest uppercase px-2.5 py-1 rounded border border-gray-700 text-gray-400 hover:border-green-400 hover:text-green-400 hover:bg-green-400/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {running ? 'running…' : 'run gc'}
+          </button>
+        </div>
       </div>
 
       {result && (
